@@ -179,21 +179,28 @@ void MobileRenderCanvas::on_render_requested()
 
 // ---- Input ----------------------------------------------------------------------------------
 
-void MobileRenderCanvas::send_move(Point p)
+void MobileRenderCanvas::set_pointer(Point p)
 {
     m_mouse_x = int(p.x);
     m_mouse_y = int(p.y);
     if (ImGui::GetCurrentContext() != nullptr) {
-        ImGuiIO& io = ImGui::GetIO();
-        io.AddMousePosEvent(p.x, p.y);
+        ImGui::GetIO().AddMousePosEvent(p.x, p.y);
     }
+}
+
+void MobileRenderCanvas::send_move(Point p)
+{
+    set_pointer(p);
     enqueue_mouse(MouseEvent{MouseEvent::Type::Move, MouseButton::NoButton, int(p.x), int(p.y), 0.f, 0.f, m_key_modifiers});
     AbstractRenderCanvas::request_render();
 }
 
 void MobileRenderCanvas::send_button(MouseButton button, bool down, Point p)
 {
-    send_move(p);
+    // Only the position, no scene Move event: a Move without actual motion right before a
+    // button press keeps click detectors (e.g. bed selection) probing, and the scene tools
+    // would then not see the press (the camera would not rotate).
+    set_pointer(p);
     if (ImGui::GetCurrentContext() != nullptr) {
         if (const int b = imgui_button(button); b >= 0) {
             ImGui::GetIO().AddMouseButtonEvent(b, down);
@@ -208,7 +215,7 @@ void MobileRenderCanvas::send_button(MouseButton button, bool down, Point p)
 
 void MobileRenderCanvas::send_wheel(Point p, float delta_x, float delta_y)
 {
-    send_move(p);
+    set_pointer(p);
     if (ImGui::GetCurrentContext() != nullptr) {
         ImGui::GetIO().AddMouseWheelEvent(delta_x / 120.f, delta_y / 120.f);
     }
@@ -287,7 +294,7 @@ void MobileRenderCanvas::on_touch(TouchAction action, int pointer_count, const f
             m_touch_start      = p0;
             m_touch_last       = p0;
             m_touch_start_time = Clock::now();
-            send_move(p0);
+            set_pointer(p0);
         }
         break;
 

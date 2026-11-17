@@ -36,12 +36,13 @@ const char* shader_input_name(VertexAttribType vat)
 GLenum texture_internal_format(PixelFormat format)
 {
 #ifdef SLIC3R_MOBILE
-    // OpenGL ES requires sized internal formats for render targets, and a depth format that
-    // matches the GL_FLOAT upload type used for depth textures.
+    // OpenGL ES requires sized internal formats for render targets. Depth targets use the
+    // format of the window's depth buffer (24 bit depth + 8 bit stencil, see the EGL config of
+    // the host), because ES only blits depth between framebuffers of identical formats.
     switch (format) {
     case PixelFormat::RGB8:           return GL_RGB8;
     case PixelFormat::RGBA8:          return GL_RGBA8;
-    case PixelFormat::DepthComponent: return GL_DEPTH_COMPONENT32F;
+    case PixelFormat::DepthComponent: return GL_DEPTH24_STENCIL8;
     default: break;
     }
 #endif // SLIC3R_MOBILE
@@ -67,6 +68,11 @@ GLenum texture_internal_format(PixelFormat format)
 
 GLenum texture_format(PixelFormat format)
 {
+#ifdef SLIC3R_MOBILE
+    if (format == PixelFormat::DepthComponent) {
+        return GL_DEPTH_STENCIL;
+    }
+#endif // SLIC3R_MOBILE
     switch (format) {
     case PixelFormat::RGB8:           return GL_RGB;
     case PixelFormat::RGBA8:          return GL_RGBA;
@@ -89,6 +95,11 @@ GLenum texture_format(PixelFormat format)
 
 GLenum texture_format_type(PixelFormat format)
 {
+#ifdef SLIC3R_MOBILE
+    if (format == PixelFormat::DepthComponent) {
+        return GL_UNSIGNED_INT_24_8;
+    }
+#endif // SLIC3R_MOBILE
     switch (format) {
     case PixelFormat::RGB8:           return GL_UNSIGNED_BYTE;
     case PixelFormat::RGBA8:          return GL_UNSIGNED_BYTE;

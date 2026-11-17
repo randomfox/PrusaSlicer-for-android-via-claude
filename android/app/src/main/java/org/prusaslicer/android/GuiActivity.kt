@@ -280,6 +280,7 @@ class GuiActivity : AppCompatActivity() {
     // ---- Toolbar -------------------------------------------------------------------------
 
     private fun uiZoom(): Float {
+        // PrusaSlicer's layout needs roughly 1000 x 480 UI pixels (landscape).
         val default = if (resources.configuration.smallestScreenWidthDp >= 600) 1.0f else 0.8f
         return prefs.getFloat("ui_zoom", default)
     }

@@ -82,6 +82,7 @@ private:
     Point to_logical(float x, float y) const { return {x / m_ui_scale, y / m_ui_scale}; }
     void send_button(Platform::MouseButton button, bool down, Point p);
     void send_move(Point p);
+    void set_pointer(Point p);
     void send_wheel(Point p, float delta_x, float delta_y);
     void update_long_press();
 

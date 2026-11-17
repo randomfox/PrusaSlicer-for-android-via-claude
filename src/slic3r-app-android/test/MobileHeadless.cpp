@@ -13,6 +13,7 @@
 //   long_press X Y         single finger long press
 //   drag X1 Y1 X2 Y2 [N]   single finger drag in N steps
 //   pan X1 Y1 X2 Y2 [N]    two finger drag
+//   mouse_drag X1 Y1 X2 Y2 [N] [BUTTON]  mouse drag (0 left, 1 right, 2 middle)
 //   pinch X Y D1 D2 [N]    two finger pinch around X,Y from distance D1 to D2
 //   open PATH              open a model/project file
 //   pick PATH              answer the next file picker with PATH
@@ -260,6 +261,14 @@ int main(int argc, char** argv)
             touch(TouchAction::Up, xs1, ys1);
             if (cmd == "pan") touch(TouchAction::Up, {xs1[0]}, {ys1[0]});
             frames(3);
+        } else if (cmd == "mouse_drag") {
+            float x1, y1, x2, y2; int n = 10, button = 0; in >> x1 >> y1 >> x2 >> y2 >> n >> button;
+            app.canvas().on_mouse_move(x1, y1); frame();
+            app.canvas().on_mouse_button(button, true, x1, y1); frame();
+            for (int i = 1; i <= n; ++i) {
+                app.canvas().on_mouse_move(x1 + (x2 - x1) * i / n, y1 + (y2 - y1) * i / n); frame();
+            }
+            app.canvas().on_mouse_button(button, false, x2, y2); frames(3);
         } else if (cmd == "pinch") {
             float x, y, d1, d2; int n = 10; in >> x >> y >> d1 >> d2 >> n;
             auto pts = [&](float d) { return std::pair{std::vector<float>{x - d / 2, x + d / 2}, std::vector<float>{y, y}}; };
