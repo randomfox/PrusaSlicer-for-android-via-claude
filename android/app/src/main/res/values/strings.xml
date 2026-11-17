@@ -30,4 +30,5 @@
     <string name="crash_message">The last session ended unexpectedly. Sharing the log helps to find the cause.</string>
     <string name="context_lost">The graphics context was lost. PrusaSlicer needs to restart.</string>
     <string name="restart">Restart</string>
+    <string name="app_menu">App menu</string>
 </resources>

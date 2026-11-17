@@ -36,8 +36,8 @@ android {
         applicationId = "org.prusaslicer.android"
         minSdk = 28
         targetSdk = 35
-        versionCode = 4
-        versionName = "3.0.0-alpha14-android4"
+        versionCode = 5
+        versionName = "3.0.0-alpha14-android5"
 
         ndk {
             abiFilters += listOf("arm64-v8a")

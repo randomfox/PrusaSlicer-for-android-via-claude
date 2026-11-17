@@ -9,10 +9,13 @@ import android.os.Handler
 import android.os.Looper
 import android.os.Process
 import android.provider.OpenableColumns
-import android.view.Menu
 import android.view.MenuItem
 import android.view.View
+import android.widget.PopupMenu
 import android.widget.Toast
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
@@ -46,7 +49,7 @@ class GuiActivity : AppCompatActivity() {
         deliverPicked(uris)
     }
 
-    // "Open" from the toolbar.
+    // "Open" from the app menu.
     private val openModels = registerForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
         if (uris.isNotEmpty()) openUris(uris)
     }
@@ -61,7 +64,8 @@ class GuiActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         binding = ActivityGuiBinding.inflate(layoutInflater)
         setContentView(binding.root)
-        setSupportActionBar(binding.toolbar)
+        enterFullScreen()
+        binding.menuButton.setOnClickListener { showAppMenu(it) }
 
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
@@ -365,7 +369,7 @@ class GuiActivity : AppCompatActivity() {
         }
     }
 
-    // ---- Toolbar -------------------------------------------------------------------------
+    // ---- App menu ------------------------------------------------------------------------
 
     private fun uiZoom(): Float {
         // PrusaSlicer's layout needs roughly 1000 x 480 UI pixels (landscape).
@@ -380,18 +384,35 @@ class GuiActivity : AppCompatActivity() {
         Toast.makeText(this, getString(R.string.ui_zoom_value, (clamped * 100).toInt()), Toast.LENGTH_SHORT).show()
     }
 
-    override fun onCreateOptionsMenu(menu: Menu): Boolean {
-        menuInflater.inflate(R.menu.gui, menu)
-        return true
+    /** Full screen (immersive): PrusaSlicer's own UI needs all the room a phone has. */
+    private fun enterFullScreen() {
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+        WindowInsetsControllerCompat(window, window.decorView).apply {
+            hide(WindowInsetsCompat.Type.systemBars())
+            systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        }
     }
 
-    override fun onOptionsItemSelected(item: MenuItem): Boolean = when (item.itemId) {
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus) enterFullScreen()
+    }
+
+    private fun showAppMenu(anchor: View) {
+        PopupMenu(this, anchor).apply {
+            menuInflater.inflate(R.menu.gui, menu)
+            setOnMenuItemClickListener { onAppMenuItem(it) }
+            show()
+        }
+    }
+
+    private fun onAppMenuItem(item: MenuItem): Boolean = when (item.itemId) {
         R.id.action_open -> { openModels.launch(arrayOf("*/*")); true }
         R.id.action_zoom_in -> { setUiZoom(uiZoom() + 0.1f); true }
         R.id.action_zoom_out -> { setUiZoom(uiZoom() - 0.1f); true }
         R.id.action_quick_slice -> { startActivity(Intent(this, MainActivity::class.java)); true }
         R.id.action_share_log -> { shareLog(); true }
-        else -> super.onOptionsItemSelected(item)
+        else -> false
     }
 
     // ---- Native host ---------------------------------------------------------------------
