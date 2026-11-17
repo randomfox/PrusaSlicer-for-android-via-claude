@@ -70,6 +70,26 @@ function(add_cmake_project projectname)
         endif ()
     endif()
     
+    # Optional local source archive override (offline builds, or environments where the
+    # upstream archive host is not reachable). If ${DEP_SOURCES_DIR}/<project>.tar.gz exists,
+    # it replaces the URL/URL_HASH of the dependency. See tools/android/mirror-deps.sh.
+    if (DEP_SOURCES_DIR AND EXISTS "${DEP_SOURCES_DIR}/${projectname}.tar.gz")
+        set(_args ${P_ARGS_UNPARSED_ARGUMENTS})
+        set(_filtered "")
+        set(_skip_next FALSE)
+        foreach (_a IN LISTS _args)
+            if (_skip_next)
+                set(_skip_next FALSE)
+            elseif (_a STREQUAL "URL" OR _a STREQUAL "URL_HASH")
+                set(_skip_next TRUE)
+            else ()
+                list(APPEND _filtered "${_a}")
+            endif ()
+        endforeach ()
+        set(P_ARGS_UNPARSED_ARGUMENTS URL "${DEP_SOURCES_DIR}/${projectname}.tar.gz" ${_filtered})
+        message(STATUS "${projectname}: using local source archive ${DEP_SOURCES_DIR}/${projectname}.tar.gz")
+    endif ()
+
     ExternalProject_Add(
         dep_${projectname}
         INSTALL_DIR         ${${PROJECT_NAME}_DEP_INSTALL_PREFIX}

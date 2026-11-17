@@ -32,7 +32,12 @@ endif ()
 
 find_package(PNG REQUIRED)
 
-if(SLIC3R_GUI)
+if(SLIC3R_GUI AND ANDROID)
+    # OpenGL ES 3 from the NDK. GL/glew.h is provided by a small compatibility header.
+    add_library(PlatformGL INTERFACE)
+    target_include_directories(PlatformGL INTERFACE ${CMAKE_SOURCE_DIR}/src/platform/android/include)
+    target_link_libraries(PlatformGL INTERFACE GLESv3 EGL)
+elseif(SLIC3R_GUI)
     set(OpenGL_GL_PREFERENCE "LEGACY")
     find_package(OpenGL REQUIRED)
 

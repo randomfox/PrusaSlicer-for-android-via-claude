@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.PrusaSlicer" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/prusa_orange</item>
+        <item name="colorOnPrimary">@android:color/white</item>
+        <item name="colorPrimaryContainer">@color/prusa_orange_container</item>
+        <item name="colorOnPrimaryContainer">@color/prusa_orange_on_container</item>
+    </style>
+</resources>

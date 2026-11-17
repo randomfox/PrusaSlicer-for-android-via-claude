@@ -126,6 +126,21 @@ if (APPLE)
     )
 endif ()
 
+if (ANDROID)
+    # Desktop-only, GUI-toolkit, test-only or optional packages that are not built for Android.
+    # OCCT (STEP import) is optional and skipped for now.
+    set(_android_excludes
+        wxWidgets GLEW GLFW OpenCSG SDL hidapi libspnav sentry Catch2 Trumpeloeil
+        OCCT libfyaml yamlCpp z3)
+    string(REPLACE ";" "|" _android_excludes "${_android_excludes}")
+    if (${PROJECT_NAME}_PACKAGE_EXCLUDES)
+        set(${PROJECT_NAME}_PACKAGE_EXCLUDES "${${PROJECT_NAME}_PACKAGE_EXCLUDES}|${_android_excludes}")
+    else ()
+        set(${PROJECT_NAME}_PACKAGE_EXCLUDES "${_android_excludes}")
+    endif ()
+    dep_message(STATUS "Android build, excluding packages: ${${PROJECT_NAME}_PACKAGE_EXCLUDES}")
+endif ()
+
 list_projects(FOUND_PACKAGES ${CMAKE_CURRENT_LIST_DIR})
 
 dep_message(STATUS "Found external package definitions: ${FOUND_PACKAGES}")

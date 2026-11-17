@@ -35,6 +35,9 @@ else()
             message(STATUS "LUA_ENV: ${LUA_ENV}")
         endif()
 
+    elseif(ANDROID)
+        set(LUA_MAKE_TARGET "linux")
+        set(LUA_ENV "CC=${ANDROID_TARGET_CC}" "AR=${CMAKE_AR} rcu" "RANLIB=${CMAKE_RANLIB}" "MYCFLAGS=-fPIC")
     else()
         set(LUA_MAKE_TARGET "linux") # Defaults to linux for standard UNIX
     endif()

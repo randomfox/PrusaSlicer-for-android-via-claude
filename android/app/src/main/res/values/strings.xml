@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">PrusaSlicer</string>
+    <string name="model">Model</string>
+    <string name="no_model">No model selected (STL, 3MF, OBJ)</string>
+    <string name="open">Open</string>
+    <string name="profiles">Profiles</string>
+    <string name="printer">Printer</string>
+    <string name="print_settings">Print settings</string>
+    <string name="material">Filament / material</string>
+    <string name="slice">Slice</string>
+    <string name="save">Save…</string>
+    <string name="share">Share</string>
+    <string name="saved">Saved</string>
+    <string name="slice_ok">Slicing finished</string>
+    <string name="slice_done">%1$s (%2$d KiB) in %3$.1f s</string>
+    <string name="slice_failed">Slicing failed (exit code %1$d), see the log below.</string>
+    <string name="status_installing">Preparing presets…</string>
+    <string name="status_loading_profiles">Loading profiles…</string>
+    <string name="status_slicing">Slicing…</string>
+    <string name="no_printers">No printer profiles were found in the bundled presets.</string>
+</resources>

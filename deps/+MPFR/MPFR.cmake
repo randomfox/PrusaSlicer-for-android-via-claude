@@ -25,8 +25,12 @@ else ()
     #     set(_cross_compile_arg --host=${TOOLCHAIN_PREFIX})
     # endif ()
 
+    set(_mpfr_env "")
     if (EMSCRIPTEN)
         set(_cross_compile_arg --host=wasm32)
+    elseif (ANDROID)
+        set(_cross_compile_arg --host=${TOOLCHAIN_PREFIX})
+        set(_mpfr_env "CC='${ANDROID_TARGET_CC}' AR='${CMAKE_AR}' RANLIB='${CMAKE_RANLIB}' NM='${CMAKE_NM}'")
     endif ()
 
     message(STATUS "${PROJECT_NAME}_DEP_INSTALL_PREFIX=${${PROJECT_NAME}_DEP_INSTALL_PREFIX}")
@@ -43,7 +47,7 @@ else ()
             ${CMAKE_COMMAND} -E env
                 sh -c
                 "autoreconf -f -i && \
-                 CFLAGS='${_gmp_ccflags}' \
+                 ${_mpfr_env} CFLAGS='${_gmp_ccflags}' \
                  CXXFLAGS='${_gmp_ccflags}' \
                  ./configure ${_cross_compile_arg} \
                              --prefix='${${PROJECT_NAME}_DEP_INSTALL_PREFIX}' \

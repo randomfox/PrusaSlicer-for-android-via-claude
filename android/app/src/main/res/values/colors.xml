@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="prusa_orange">#ED6B21</color>
+    <color name="prusa_orange_container">#FFDBCB</color>
+    <color name="prusa_orange_on_container">#351000</color>
+    <color name="launcher_background">#2B2B2B</color>
+</resources>

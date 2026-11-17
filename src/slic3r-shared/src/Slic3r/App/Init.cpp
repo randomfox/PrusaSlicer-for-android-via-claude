@@ -97,6 +97,12 @@ void init_common()
 
 #ifdef __EMSCRIPTEN__
     boost::filesystem::path path_resources = "/resources";
+#elif defined(__ANDROID__)
+    // On Android the native code lives inside the APK, so the resources cannot be found
+    // relative to the binary. The Java side extracts them into the app's private storage
+    // and passes the location through the environment.
+    const char* android_resources = std::getenv("PRUSASLICER_RESOURCES_DIR");
+    boost::filesystem::path path_resources = android_resources != nullptr ? android_resources : "resources";
 #else
     // See Invoking prusa-slicer from $PATH environment variable crashes #5542
     // boost::filesystem::path path_to_binary = boost::filesystem::system_complete(argv[0]);

@@ -1,4 +1,4 @@
-if (MSVC OR APPLE OR EMSCRIPTEN)
+if (MSVC OR APPLE OR EMSCRIPTEN OR ANDROID)
     if (APPLE)
         # Only disable NEON extension for Apple ARM builds, leave it enabled for Raspberry PI.
         set(_disable_neon_extension "-DPNG_ARM_NEON:STRING=off")
