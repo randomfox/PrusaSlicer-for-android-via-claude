@@ -19,7 +19,7 @@ This is an experimental Android port of PrusaSlicer. It is being done in stages:
 | Toolchain | `cmake/toolchains/android.cmake` | Wraps the NDK toolchain, pins ABI/API level (default arm64-v8a, API 28) and the static C++ runtime. Used for both the dependencies and PrusaSlicer. |
 | Dependencies | `deps/` | Built like on desktop. On Android, desktop-only packages (wxWidgets, GLEW, GLFW, SDL, hidapi, OCCT, sentry, ...) are skipped, and the autotools-based ones (GMP, MPFR, OpenSSL, Lua) are cross-compiled. |
 | PrusaSlicer | top-level `CMakeLists.txt` | `ANDROID` behaves like the Emscripten build: no wxWidgets/WebKit/STEP, rendering libraries are compiled against OpenGL ES 3 (`src/platform/android/include/GL/glew.h` is a GLEW stand-in). |
-| Native entry points | `src/slic3r-app-android/` | `libprusaslicer.so` (JNI) and a stand-alone `prusa-slicer` executable. Both run the regular PrusaSlicer CLI (`src/slic3r-app-cli`). |
+| Native entry points | `src/slic3r-app-android/` | `libprusaslicer.so` (JNI) and a stand-alone `prusa-slicer` executable. Both run the regular PrusaSlicer CLI (`src/slic3r-app-cli`). The JNI library keeps one CLI runtime per process, so the preset bundle is loaded once and reused by all later queries and slices (`ninja prusaslicer-android-session-test` builds a test for this). |
 | Android app | `android/` | Kotlin, Material 3. Bundles `resources/` (presets, matdb, ...) as assets and extracts them on first start. |
 
 The resources directory is located through the `PRUSASLICER_RESOURCES_DIR` environment

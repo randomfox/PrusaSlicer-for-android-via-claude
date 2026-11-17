@@ -35,3 +35,9 @@ set_target_properties(prusaslicer-android-cli PROPERTIES OUTPUT_NAME prusa-slice
 
 install(TARGETS prusaslicer-jni LIBRARY DESTINATION lib)
 install(TARGETS prusaslicer-android-cli RUNTIME DESTINATION bin)
+
+# Session reuse test (not part of the default build).
+add_executable(prusaslicer-android-session-test EXCLUDE_FROM_ALL test/SessionTest.cpp)
+target_link_libraries(prusaslicer-android-session-test PRIVATE slic3r-app-android-core)
+target_link_options(prusaslicer-android-session-test PRIVATE ${_android_link_options})
+set_target_properties(prusaslicer-android-session-test PROPERTIES OUTPUT_NAME session-test)

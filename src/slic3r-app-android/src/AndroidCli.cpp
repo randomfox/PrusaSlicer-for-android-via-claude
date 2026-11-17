@@ -3,6 +3,7 @@
 #include "Slic3r/App/AppConfig.hpp"
 #include "Slic3r/App/AppServices.hpp"
 #include "Slic3r/App/CLI/CLIApp.hpp"
+#include "Slic3r/App/CLI/CLIRuntime.hpp"
 #include "Slic3r/App/Init.hpp"
 #include "Slic3r/App/Launcher/ReadCLI.hpp"
 #include "Slic3r/Assert.hpp"
@@ -14,12 +15,37 @@
 
 #include <cstdio>
 #include <cstdlib>
+#include <memory>
 #include <mutex>
 
 namespace Slic3r::App::Android {
 
 namespace {
 std::once_flag g_init_flag;
+
+// Kept for the lifetime of the process, so that the preset bundle (the bulk of the start-up
+// cost, about 1 GB of preset data) is loaded once and reused by all subsequent runs.
+std::unique_ptr<Slic3r::App::CLI::CLIRuntime> g_runtime;
+
+// Clears the projects of a run, also when the run throws.
+class RunScope
+{
+public:
+    explicit RunScope(Slic3r::App::CLI::CLIRuntime& runtime) : m_runtime(runtime) {}
+    ~RunScope()
+    {
+        try {
+            m_runtime.remove_all_projects();
+        } catch (const std::exception& ex) {
+            std::fprintf(stderr, "Warning: cleanup after run failed: %s\n", ex.what());
+        }
+    }
+    RunScope(const RunScope&) = delete;
+    RunScope& operator=(const RunScope&) = delete;
+
+private:
+    Slic3r::App::CLI::CLIRuntime& m_runtime;
+};
 } // namespace
 
 void initialize(const std::string& resources_dir, const std::string& data_dir, const std::string& cache_dir)
@@ -76,7 +102,11 @@ int run(std::vector<std::string> args)
         return EXIT_FAILURE;
     }
 
-    return Slic3r::App::CLI::run(init_params);
+    if (!g_runtime) {
+        g_runtime = std::make_unique<Slic3r::App::CLI::CLIRuntime>(Slic3r::App::InitParams{});
+    }
+    RunScope scope{*g_runtime};
+    return Slic3r::App::CLI::run(init_params, *g_runtime);
 }
 
 } // namespace Slic3r::App::Android

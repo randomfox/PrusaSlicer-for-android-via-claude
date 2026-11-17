@@ -83,7 +83,7 @@ class MainActivity : AppCompatActivity() {
     private fun initialize() {
         setBusy(true, getString(R.string.status_installing))
         lifecycleScope.launch {
-            val result = withContext(Dispatchers.IO) {
+            val result = withContext(NativeSlicer.dispatcher) {
                 runCatching {
                     val resources = ResourceInstaller.install(this@MainActivity)
                     NativeSlicer.init(resources, File(filesDir, "data"), File(cacheDir, "native"))
@@ -121,7 +121,7 @@ class MainActivity : AppCompatActivity() {
         prefs.edit().putString("printer", printer).apply()
         setBusy(true, getString(R.string.status_loading_profiles))
         lifecycleScope.launch {
-            val result = withContext(Dispatchers.IO) {
+            val result = withContext(NativeSlicer.dispatcher) {
                 runCatching {
                     val json = File(cacheDir, "profiles.json")
                     json.delete()
@@ -208,7 +208,7 @@ class MainActivity : AppCompatActivity() {
         outputFile = null
         lifecycleScope.launch {
             val started = System.currentTimeMillis()
-            val run = withContext(Dispatchers.IO) {
+            val run = withContext(NativeSlicer.dispatcher) {
                 runCatching { NativeSlicer.run(args, File(cacheDir, "slice.log")) }
             }
             setBusy(false)

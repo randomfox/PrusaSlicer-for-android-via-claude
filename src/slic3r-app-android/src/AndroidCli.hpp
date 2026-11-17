@@ -11,7 +11,8 @@ namespace Slic3r::App::Android {
 void initialize(const std::string& resources_dir, const std::string& data_dir, const std::string& cache_dir);
 
 /// Runs the PrusaSlicer command line interface. `args` excludes the program name.
-/// Returns the process-style exit code.
+/// Returns the process-style exit code. The preset bundle is loaded by the first run that
+/// needs it and kept in memory for later runs. Not thread safe; call from one thread.
 int run(std::vector<std::string> args);
 
 } // namespace Slic3r::App::Android

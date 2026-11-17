@@ -76,9 +76,20 @@ public:
 
     void load_standard_preset_bundle();
 
+    /// True once load_standard_preset_bundle() succeeded. A long-lived runtime (see
+    /// CLI::run(InitParams&, CLIRuntime&)) loads the bundle only once.
+    bool is_preset_bundle_loaded() const { return m_preset_bundle_loaded; }
+
+    /// Input files of the current run (used to take thumbnails from an input 3MF).
+    void set_input_files(const std::vector<std::string>& input_files);
+
+    /// Removes all projects, so that a long-lived runtime can be reused for the next run.
+    void remove_all_projects();
+
     void wait_until(const std::function<bool()>& predicate);
 
 private:
+    bool m_preset_bundle_loaded{false};
     CLIThumbnailImageGenerator m_thumbnail_image_generator;
     Domain::Workbench m_workbench;
     std::optional<Biz::ProjectInteractor> m_project_interactor;

@@ -1,9 +1,23 @@
 package org.prusaslicer.android
 
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.asCoroutineDispatcher
 import java.io.File
+import java.util.concurrent.Executors
 
-/** Thin wrapper around libprusaslicer.so (src/slic3r-app-android). */
+/**
+ * Thin wrapper around libprusaslicer.so (src/slic3r-app-android).
+ *
+ * The native side keeps one PrusaSlicer session for the lifetime of the process: the preset
+ * bundle is loaded by the first call that needs it (about 1 GB, several seconds) and reused
+ * afterwards, so later profile queries and slicing do not pay for it again.
+ */
 object NativeSlicer {
+    /** All native calls run on this single thread (PrusaSlicer's session is not thread safe). */
+    val dispatcher: CoroutineDispatcher =
+        Executors.newSingleThreadExecutor { r -> Thread(r, "prusaslicer-native").apply { isDaemon = true } }
+            .asCoroutineDispatcher()
+
     init {
         System.loadLibrary("prusaslicer")
     }

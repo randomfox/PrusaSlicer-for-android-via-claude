@@ -1,3 +1,4 @@
+#include "Slic3r/App/CLI/CLIApp.hpp"
 #include "Slic3r/App/AppServices.hpp"
 #include "Slic3r/App/CLI/CLIRuntime.hpp"
 #include "Slic3r/App/CLI/LoadPrintData.hpp"
@@ -195,14 +196,19 @@ public:
 
 int run(InitParams& init_params)
 {
+    CLIRuntime runtime{init_params};
+    return run(init_params, runtime);
+}
+
+int run(InitParams& init_params, CLIRuntime& runtime)
+{
     // Even CLI needs to initialize DialogManager to pass 3MF loading and other steps.
     AppServices& app_services = AppServices::instance();
     app_services.set_dialog_manager(std::make_unique<CLIDummyDialogManager>());
-
-    CLIRuntime runtime{init_params};
+    runtime.set_input_files(init_params.input.input_files);
 
     // subcommands do not need loaded presets
-    if (!init_params.action.has_subcommand_action()) {
+    if (!init_params.action.has_subcommand_action() && !runtime.is_preset_bundle_loaded()) {
         try {
             runtime.load_standard_preset_bundle();
         } catch (const boost::filesystem::filesystem_error& filesystem_error) {

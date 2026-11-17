@@ -201,6 +201,26 @@ void CLIRuntime::load_standard_preset_bundle()
     this->project_interactor().preset_interactor().load_preset_bundle(
         Preset::IO::BundlePaths::make_standard_runtime()
     );
+    m_preset_bundle_loaded = true;
+}
+
+void CLIRuntime::set_input_files(const std::vector<std::string>& input_files)
+{
+    // Assigned in place: the project interactor keeps a reference to the generator.
+    m_thumbnail_image_generator = CLIThumbnailImageGenerator{input_files};
+}
+
+void CLIRuntime::remove_all_projects()
+{
+    std::vector<Domain::SelectionId> project_ids;
+    for (const auto& [project_id, project] : m_workbench.projects()) {
+        project_ids.push_back(project_id);
+    }
+    for (const Domain::SelectionId project_id : project_ids) {
+        this->project_interactor().remove_project(project_id);
+    }
+    // Let queued notifications about the removal run now rather than in the next run.
+    while (this->dispatcher().dispatch_enqueued()) { }
 }
 
 void CLIRuntime::wait_until(const std::function<bool()>& predicate)
