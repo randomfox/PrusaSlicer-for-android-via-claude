@@ -42,6 +42,7 @@ class GuiActivity : AppCompatActivity() {
 
     // File picker requested by PrusaSlicer (IMobileHost::pick_files).
     private var pickRequestId = -1
+    private var openForm: FormDialog? = null
     private val pickOne = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         deliverPicked(listOfNotNull(uri))
     }
@@ -154,6 +155,10 @@ class GuiActivity : AppCompatActivity() {
 
     override fun onPause() {
         runCatching { multicastLock.release() }
+        // The render thread may be blocked waiting for a form; GLSurfaceView.onPause() waits for
+        // the render thread, so release it first.
+        openForm?.cancel()
+        openForm = null
         surface?.onPause()
         super.onPause()
     }
@@ -442,6 +447,24 @@ class GuiActivity : AppCompatActivity() {
                 buttons.getOrNull(1)?.let { label -> builder.setNegativeButton(label) { _, _ -> surface?.answerQuestion(id, 1) } }
                 buttons.getOrNull(2)?.let { label -> builder.setNeutralButton(label) { _, _ -> surface?.answerQuestion(id, 2) } }
                 builder.show()
+            }
+        }
+
+        override fun showForm(id: Int, json: String) {
+            mainHandler.post {
+                if (isFinishing || isDestroyed) {
+                    GuiNative.nativeFormAnswered(id, """{"button":-1}""")
+                    return@post
+                }
+                val form = FormDialog(this@GuiActivity, id, json) { formId, answer ->
+                    GuiNative.nativeFormAnswered(formId, answer)
+                    surface?.requestRender()
+                }
+                openForm = form
+                runCatching { form.show() }.onFailure {
+                    android.util.Log.e("PrusaSlicerGui", "Cannot show form", it)
+                    form.cancel()
+                }
             }
         }
 

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <map>
 #include <string>
 #include <vector>
 
@@ -8,6 +9,53 @@ namespace Slic3r::App::Mobile {
 /// Services the native UI needs from the platform hosting it: the Android activity (through
 /// JNI), or the headless test harness. All calls are made on the render thread; replies come
 /// back through MobileApp methods, also on the render thread.
+/// A modal form (the mobile replacement of the desktop's modal dialogs): a message, a list of
+/// fields and buttons.
+struct MobileForm
+{
+    struct Field
+    {
+        enum class Type {
+            Text,    ///< single line text
+            Number,  ///< decimal number (value as text)
+            Choice,  ///< one of `options` (value = the chosen option)
+            Check,   ///< check box (value "1" / "0")
+            Info,    ///< read only text (label = heading, value = text)
+        };
+        std::string id;
+        Type type{Type::Text};
+        std::string label;
+        std::string value;
+        std::vector<std::string> options;
+    };
+
+    std::string title;
+    std::string text;
+    /// Shown in an error color above the fields (e.g. why the previous input was rejected).
+    std::string error;
+    std::vector<Field> fields;
+    /// Left to right; the first is the default (positive) action.
+    std::vector<std::string> buttons;
+};
+
+struct MobileFormResult
+{
+    /// Index into MobileForm::buttons, -1 when the form was dismissed.
+    int button{-1};
+    /// Field id -> value (same format as MobileForm::Field::value).
+    std::map<std::string, std::string> values;
+
+    std::string value(const std::string& id, const std::string& fallback = {}) const
+    {
+        auto it = values.find(id);
+        return it == values.end() ? fallback : it->second;
+    }
+};
+
+/// JSON transport of forms (used by the Android host).
+std::string form_to_json(const MobileForm& form);
+MobileFormResult form_result_from_json(const std::string& json);
+
 class IMobileHost
 {
 public:
@@ -29,6 +77,11 @@ public:
         const std::string& text,
         const std::vector<std::string>& buttons
     ) = 0;
+
+    /// Shows a modal form and BLOCKS the calling thread until the user answers. Used for the
+    /// desktop's synchronous (modal) dialogs. The host's UI runs on another thread, so it keeps
+    /// working; the host must answer (dismissed) when it can no longer show the form.
+    virtual MobileFormResult show_form(const MobileForm& form) = 0;
 
     /// Lets the user pick files to open. The host copies them into local storage and answers
     /// with MobileApp::on_files_picked(id, local_paths) (empty when cancelled).

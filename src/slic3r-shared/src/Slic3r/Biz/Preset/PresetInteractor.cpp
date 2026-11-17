@@ -3265,16 +3265,10 @@ void PresetInteractor::process_operation_from_unsaved_changes(
     }
 
     // iterate the unsaved changes and remove them one by one just after completing the processing
-    auto it = m_unsaved_changes.begin();
-    while (it != m_unsaved_changes.end())
-    {
-        const auto& preset_id = it->first;
-        const auto& state = it->second;
+    // (The entries are removed later, by the bag; this loop only processes them.)
+    for (const auto& [preset_id, state] : m_unsaved_changes) {
         if (state.operation == operation) {
             process(selected_preset, preset_id, state);
-        }
-        else {
-            ++it;
         }
     }
 

@@ -20,8 +20,11 @@
 #include <unistd.h>
 #include <unwind.h>
 
+#include <condition_variable>
 #include <cstdio>
 #include <cstring>
+#include <mutex>
+#include <optional>
 
 #include <exception>
 #include <memory>
@@ -104,7 +107,43 @@ public:
         m_set_text_input    = env->GetMethodID(cls, "setTextInputActive", "(Z)V");
         m_open_webview      = env->GetMethodID(cls, "openWebView", "(ILjava/lang/String;Ljava/lang/String;[Ljava/lang/String;)V");
         m_webview_command   = env->GetMethodID(cls, "webViewCommand", "(IILjava/lang/String;Ljava/lang/String;)V");
+        m_show_form         = env->GetMethodID(cls, "showForm", "(ILjava/lang/String;)V");
         env->DeleteLocalRef(cls);
+    }
+
+    Slic3r::App::Mobile::MobileFormResult show_form(const Slic3r::App::Mobile::MobileForm& form) override
+    {
+        int id = 0;
+        {
+            std::lock_guard lock(m_form_mutex);
+            id = ++m_form_id;
+            m_form_answer.reset();
+        }
+        const std::string json = Slic3r::App::Mobile::form_to_json(form);
+        with_env([&](JNIEnv* env) {
+            jstring jjson = env->NewStringUTF(json.c_str());
+            env->CallVoidMethod(m_host, m_show_form, jint(id), jjson);
+            env->DeleteLocalRef(jjson);
+        });
+        // The answer comes from the UI thread (nativeFormAnswered), which is not blocked.
+        std::unique_lock lock(m_form_mutex);
+        m_form_cv.wait(lock, [&] { return m_form_answer.has_value(); });
+        std::string answer = std::move(*m_form_answer);
+        m_form_answer.reset();
+        return Slic3r::App::Mobile::form_result_from_json(answer);
+    }
+
+    /// Called on the UI thread.
+    void on_form_answered(int id, std::string answer)
+    {
+        {
+            std::lock_guard lock(m_form_mutex);
+            if (id != m_form_id || m_form_answer.has_value()) {
+                return;
+            }
+            m_form_answer = std::move(answer);
+        }
+        m_form_cv.notify_all();
     }
 
     void request_render() override { call(m_request_render); }
@@ -224,6 +263,12 @@ private:
     jmethodID m_set_text_input;
     jmethodID m_open_webview;
     jmethodID m_webview_command;
+    jmethodID m_show_form;
+
+    std::mutex m_form_mutex;
+    std::condition_variable m_form_cv;
+    int m_form_id{0};
+    std::optional<std::string> m_form_answer;
 };
 
 // ---- Crash reporting ---------------------------------------------------------------------
@@ -444,3 +489,10 @@ JNIEXPORT jstring JNICALL Java_org_prusaslicer_android_GuiNative_nativeOutputDir
 }
 
 } // extern "C"
+
+// Unlike the other native methods this one is called on the UI thread: the render thread is
+// blocked in JniHost::show_form() waiting for it.
+extern "C" JNIEXPORT void JNICALL Java_org_prusaslicer_android_GuiNative_nativeFormAnswered(JNIEnv* env, jclass, jint id, jstring answer)
+{
+    run_guarded("nativeFormAnswered", [&]() { if (g_host) g_host->on_form_answered(id, to_string(env, answer)); });
+}

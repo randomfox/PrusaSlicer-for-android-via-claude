@@ -85,6 +85,9 @@ public:
 
     bool is_ready() const { return m_init_completed; }
 
+    /// The project (presets, objects, slicing). Valid once is_ready().
+    Biz::ProjectInteractor& project_interactor() { return *m_project_interactor; }
+
 private:
     void init_services();
     void on_preset_updater_forced_state(bool has_forced);

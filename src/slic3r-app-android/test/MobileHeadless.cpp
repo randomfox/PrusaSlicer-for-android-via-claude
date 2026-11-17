@@ -21,6 +21,16 @@
 //   webview_loaded URL     report a page load in the last opened web view
 //   webview_navigate URL   report a navigation request in the last opened web view
 //   answer N               answer the next question with button N (default 0)
+//   form N [id=value ...]  answer the next form with button N and the given field values
+//                          (fields not given keep their value, '_' in values = space;
+//                          without a form command: button 0)
+//   set_print_int KEY N    change an integer option of the selected print preset
+//   select_print INDEX     select a print preset like the sidebar combo box does
+//   save_print             save the selected print preset (asks for a name)
+//   slice                  slice all beds
+//   add_printer TYPE URL KEY  add + select a physical printer (TYPE: octoprint, prusalink)
+//   upload                 "Send to printer" (upload the sliced G-code to the selected printer)
+//   compare [material]     "Compare presets" (print presets, or material presets)
 //   text STRING            type text
 //   key CODE               press and release an Android key code
 //   shot FILE.png          save a screenshot
@@ -30,7 +40,12 @@
 
 #include "Slic3r/App/AppConfig.hpp"
 #include "Slic3r/App/AppServices.hpp"
+#include "Slic3r/App/IDialogManager.hpp"
 #include "Slic3r/Log.hpp"
+#include "Slic3r/Biz/ProjectInteractor.hpp"
+#include "Slic3r/App/ResultExport/ExportActions.hpp"
+#include "Slic3r/Biz/Preset/PresetInteractor.hpp"
+#include "Slic3r/Biz/Preset/PresetSelectionCheck.hpp"
 
 #include <EGL/egl.h>
 #include <EGL/eglext.h>
@@ -43,6 +58,7 @@
 #include <chrono>
 #include <cstdio>
 #include <cstdlib>
+#include <algorithm>
 #include <deque>
 #include <fstream>
 #include <sstream>
@@ -51,11 +67,27 @@
 #include <vector>
 
 using Slic3r::App::Mobile::IMobileHost;
+using Slic3r::App::Mobile::MobileForm;
+using Slic3r::App::Mobile::MobileFormResult;
+using Slic3r::App::Mobile::form_to_json;
 using Slic3r::App::Mobile::MobileApp;
 using Slic3r::App::Mobile::MobileRenderCanvas;
 using TouchAction = MobileRenderCanvas::TouchAction;
 
 namespace {
+
+/// "print \"<name>\" perimeters=N" of the selected print preset.
+std::string print_state(MobileApp& app)
+{
+    const auto& print = app.project_interactor().preset_interactor().selected_printer_preset().print;
+    int perimeters    = -1;
+    if (const auto* settings = std::get_if<Slic3r::Domain::PrintSettings>(&print.values)) {
+        if (const Slic3r::Domain::ConfigItem* item = settings->items.find("perimeters")) {
+            perimeters = item->get<int>();
+        }
+    }
+    return "print \"" + print.name + "\" perimeters=" + std::to_string(perimeters);
+}
 
 class HeadlessHost final : public IMobileHost
 {
@@ -63,6 +95,7 @@ public:
     bool render_requested{true};
     std::deque<std::string> pick_answers;
     std::deque<int> question_answers;
+    std::deque<MobileFormResult> form_answers;
     std::vector<std::pair<int, std::vector<std::string>>> pending_picks;
     std::vector<std::pair<int, int>> pending_answers;
 
@@ -82,6 +115,22 @@ public:
         std::printf("[host] question %s: %s -> %s\n", title.c_str(), text.c_str(),
                     answer >= 0 && answer < int(buttons.size()) ? buttons[answer].c_str() : "dismissed");
         pending_answers.emplace_back(id, answer);
+    }
+
+    MobileFormResult show_form(const MobileForm& form) override
+    {
+        std::printf("[host] form %s\n", form_to_json(form).c_str());
+        MobileFormResult result;
+        result.button = 0;
+        if (!form_answers.empty()) {
+            result = form_answers.front();
+            form_answers.pop_front();
+        }
+        for (const MobileForm::Field& field : form.fields) {
+            result.values.try_emplace(field.id, field.value);
+        }
+        std::printf("[host] form answer: button %d\n", result.button);
+        return result;
     }
 
     void pick_files(int id, FileRequestKind, const std::string& title, const std::string&) override
@@ -309,6 +358,66 @@ int main(int argc, char** argv)
             std::string path; in >> path; host.pick_answers.push_back(path);
         } else if (cmd == "answer") {
             int n = 0; in >> n; host.question_answers.push_back(n);
+        } else if (cmd == "set_print_int") {
+            std::string key; int value = 0; in >> key >> value;
+            app.project_interactor().preset_interactor().set_preset_value(
+                Slic3r::Domain::FDMConfigLocation::Print, 0, key, [value](Slic3r::Domain::ConfigItem& item) { item.set<int>(value); });
+            std::printf("[headless] %s\n", print_state(app).c_str());
+            frames(3);
+        } else if (cmd == "select_print") {
+            size_t index = 0; in >> index;
+            auto& presets = app.project_interactor().preset_interactor();
+            const std::string id = presets.print_presets().items().at(index).id;
+            const bool ok = Slic3r::Biz::Preset::PresetSelectionCheck::can_select_print_preset(presets, id);
+            if (ok) {
+                presets.select_print_preset(id, true);
+            }
+            std::printf("[headless] select print %zu: %s, %s\n", index, ok ? "switched" : "cancelled", print_state(app).c_str());
+            frames(3);
+        } else if (cmd == "save_print") {
+            auto& presets = app.project_interactor().preset_interactor();
+            presets.save_user_preset(Slic3r::Domain::Preset::PresetKind::FdmPrint, 0);
+            std::printf("[headless] after save: %s\n", print_state(app).c_str());
+            frames(3);
+        } else if (cmd == "slice") {
+            app.project_interactor().slicing_interactor().slice_all();
+            frames(3);
+        } else if (cmd == "add_printer") {
+            std::string type, url, key; in >> type >> url >> key;
+            Slic3r::Biz::PhysicalPrinter::PhysicalPrinterConfig printer;
+            printer.name = "Test " + type;
+            printer.host = url;
+            printer.payload = Slic3r::Biz::PhysicalPrinter::PrinterUpload{
+                .type = type == "prusalink" ? Slic3r::Domain::PrintHostType::PrusaLink : Slic3r::Domain::PrintHostType::OctoPrint,
+                .api_key = key,
+                .auth_type = Slic3r::Domain::PrintHostAuthType::ApiKey,
+            };
+            app.project_interactor().physical_printer_interactor().create_or_save_physical_printer(printer);
+            const auto* selected = app.project_interactor().physical_printer_interactor().selected_physical_printer_data();
+            std::printf("[headless] printer selected: %s, upload: %d\n", selected ? selected->name.c_str() : "(none)",
+                        int(app.project_interactor().physical_printer_interactor().is_printer_upload_selected()));
+            frames(3);
+        } else if (cmd == "upload") {
+            Slic3r::App::ExportActions::upload_gcode_to_print_host(app.project_interactor())();
+            frames(3);
+        } else if (cmd == "compare") {
+            std::string what; in >> what;
+            Slic3r::App::AppServices::instance().dialog_manager().show_diff_dialog(
+                app.project_interactor().preset_interactor(),
+                what == "material" ? std::optional{Slic3r::Domain::Preset::PresetKind::FdmMaterial} : std::nullopt);
+            frames(3);
+        } else if (cmd == "form") {
+            MobileFormResult answer;
+            in >> answer.button;
+            std::string item;
+            while (in >> item) {
+                if (const auto eq = item.find('='); eq != std::string::npos) {
+                    std::string value = item.substr(eq + 1);
+                    std::replace(value.begin(), value.end(), '_', ' ');
+                    answer.values[item.substr(0, eq)] = value;
+                }
+            }
+            host.form_answers.push_back(std::move(answer));
         } else if (cmd == "text") {
             std::string rest; std::getline(in, rest);
             if (!rest.empty() && rest[0] == ' ') rest.erase(0, 1);

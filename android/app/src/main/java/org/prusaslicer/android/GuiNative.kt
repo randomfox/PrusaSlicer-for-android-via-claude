@@ -34,6 +34,8 @@ object GuiNative {
     @JvmStatic external fun nativeWebViewScriptMessage(id: Int, message: String)
     @JvmStatic external fun nativeWebViewError(id: Int, description: String)
     @JvmStatic external fun nativeWebViewDismissed(id: Int)
+    /** Called on the UI thread (the render thread is waiting for it). */
+    @JvmStatic external fun nativeFormAnswered(id: Int, answer: String)
 
     // IMobileHost::WebViewCommand
     const val WEB_LOAD_URL = 0
@@ -57,4 +59,6 @@ interface GuiHost {
     fun setTextInputActive(active: Boolean)
     fun openWebView(id: Int, title: String, url: String, handlerNames: Array<String>)
     fun webViewCommand(id: Int, command: Int, data: String, extra: String)
+    /** Shows a modal form; the render thread blocks until nativeFormAnswered(id, ...). */
+    fun showForm(id: Int, json: String)
 }

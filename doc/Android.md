@@ -48,8 +48,9 @@ its private storage.
 Testing without a device: configure the main project on Linux with `-DSLIC3R_MOBILE=ON`
 (dependencies built with `cmake -S deps -DSLIC3R_MOBILE=ON ...`), build `mobile-headless`
 and run it with a script (see `src/slic3r-app-android/test/MobileHeadless.cpp`). It renders
-the GUI into an EGL pbuffer with Mesa (OpenGL ES 3.2, llvmpipe), injects touch input and
-writes screenshots.
+the GUI into an EGL pbuffer with Mesa (OpenGL ES 3.2, llvmpipe), injects touch input, answers
+dialogs from the script and writes screenshots. Rebuilding the Android tree after CMake files
+changed needs `ANDROID_NDK_HOME` set (the toolchain file reads it during re-configuration).
 
 ### Stage 3: platform integration
 
@@ -63,6 +64,17 @@ writes screenshots.
   provided by a document start script.
 * `prusaslicer://` links open `GuiActivity` and are passed to PrusaSlicer (login messages go
   through the app instance message handler, like on the desktop).
+* Modal dialogs: PrusaSlicer's synchronous (modal) dialogs block the render thread in
+  `IMobileHost::show_form()` while the Android UI thread shows a `FormDialog` (text, number,
+  choice and check box fields, up to three buttons). The UI thread answers through
+  `nativeFormAnswered` directly; when the activity pauses, an open form is answered as
+  dismissed first, because `GLSurfaceView.onPause()` waits for the render thread. Built on it:
+  unsaved preset changes (transfer / discard / save, per option), saving presets under a new
+  name (with PrusaSlicer's name validation), comparing print or material presets, STEP import
+  precision, the printer upload file name and PrusaLink storage choice, ramming and wiping
+  volume editors (`src/gui/MobilePresetDialogs.*`, `src/gui/MobileServices.cpp`).
+* Printer upload: physical printers (PrusaLink, OctoPrint, ...) and "Send to printer" use the
+  shared PrusaSlicer code; curl gets the system CA bundle explicitly (`HttpCurl.cpp`).
 
 ## Building
 
@@ -125,8 +137,6 @@ prusa-slicer --export-gcode --printer-profile "Original Prusa MK4S HF0.4 nozzle"
   roughly that much before slicing starts.
 * The rendering libraries target OpenGL ES 3.2 (texture buffers); not used yet in stage 1.
 * arm64-v8a only (x86_64 can be built with `PRUSASLICER_ANDROID_ABI=x86_64`, untested).
-* GUI: landscape only; native dialogs that are not supported yet return their default
-  answer (e.g. saving presets under a new name, comparing presets); web based features
-  (Printables, Prusa Connect login) are not available.
-* STEP import, post-processing scripts, printer upload and online preset updates are not
-  available.
+* GUI: landscape only. "Compare presets" compares print or material presets of the selected
+  printer only. A dialog that is open when the app goes to the background is cancelled.
+* Post-processing scripts are not available.

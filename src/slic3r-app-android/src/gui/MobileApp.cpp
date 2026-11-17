@@ -270,6 +270,12 @@ void MobileApp::init_services()
     m_project_interactor->user_account_interactor().add_listener<Biz::UserAccount::IUserAccountListener>(
         &app_services.pop_notification_center()
     );
+    m_project_interactor->connect_message_handler().add_listener<Biz::Connect::IConnectHandlerListener>(
+        &app_services.pop_notification_center()
+    );
+    m_project_interactor->physical_printer_interactor().printer_preset_selector().add_listener<Biz::Preset::IPrinterPresetSelectorListener>(
+        &app_services.pop_notification_center()
+    );
 
     PresetUpdater::ControllerEnvironment environment;
     environment.timer_queue    = &platform_services.timer_queue();

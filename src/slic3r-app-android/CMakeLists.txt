@@ -28,6 +28,9 @@ endif ()
 add_library(slic3r-mobile-gui STATIC
     src/gui/MobileApp.cpp
     src/gui/MobileApp.hpp
+    src/gui/MobileForm.cpp
+    src/gui/MobilePresetDialogs.cpp
+    src/gui/MobilePresetDialogs.hpp
     src/gui/MobileHost.hpp
     src/gui/MobileRenderCanvas.cpp
     src/gui/MobileRenderCanvas.hpp
