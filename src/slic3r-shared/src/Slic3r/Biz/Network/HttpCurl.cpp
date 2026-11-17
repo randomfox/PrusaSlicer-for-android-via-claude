@@ -123,6 +123,15 @@ HttpCurl::HttpCurl(RequestMethod request_method, std::string&& url, RetryFn fn) 
     ::curl_easy_setopt(m_curl.get(), CURLOPT_ERRORBUFFER, &m_error_buffer.front());
     ::curl_easy_setopt(m_curl.get(), CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1);
 
+#ifdef __ANDROID__
+    // curl is built without a default CA bundle and does not fall back to OpenSSL's default
+    // paths, so SSL_CERT_FILE alone is ignored. The Android host builds a bundle from the
+    // system certificates and points SSL_CERT_FILE at it; hand it to curl explicitly.
+    if (const char* ca_bundle = ::getenv("SSL_CERT_FILE"); ca_bundle != nullptr && *ca_bundle != '\0') {
+        ::curl_easy_setopt(m_curl.get(), CURLOPT_CAINFO, ca_bundle);
+    }
+#endif
+
     switch (m_request_method) {
     case IHttp::RequestMethod::Post:
         curl_easy_setopt(m_curl.get(), CURLOPT_POST, 1L);
