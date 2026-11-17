@@ -1432,6 +1432,12 @@ elseif (APPLE)
             src/Slic3r/Biz/RemovableDrive/RemovableDriveMonitorInnerMac.h
             src/Slic3r/Biz/RemovableDrive/RemovableDriveMonitorInnerMac.mm
     )
+elseif (ANDROID)
+    list(APPEND SLIC3R_SHARED_FILES
+            src/Slic3r/Biz/SHA256Linux.cpp # OpenSSL based
+            src/Slic3r/Biz/AppInstance/AppInstanceMessageHandlerFactoryAndroid.cpp
+            src/Slic3r/Biz/RemovableDrive/RemovableDriveServiceAndroid.cpp
+    )
 elseif (CMAKE_SYSTEM_NAME STREQUAL "Linux")
     list(APPEND SLIC3R_SHARED_FILES
             src/Slic3r/Biz/SHA256Linux.cpp
@@ -1473,6 +1479,13 @@ find_package(nlohmann_json 3.11 REQUIRED)
 find_package(EXPAT CONFIG REQUIRED)
 find_package(pugixml CONFIG REQUIRED)
 find_package(PahoMqttCpp REQUIRED)
+if (ANDROID)
+    # Paho's exported target links "stdc++", which the NDK resolves to the shared libc++.
+    # The C++ runtime is linked statically on Android, so drop it.
+    get_target_property(_paho_libs PahoMqttCpp::paho-mqttpp3-static INTERFACE_LINK_LIBRARIES)
+    list(REMOVE_ITEM _paho_libs "$<LINK_ONLY:stdc++>" "stdc++")
+    set_target_properties(PahoMqttCpp::paho-mqttpp3-static PROPERTIES INTERFACE_LINK_LIBRARIES "${_paho_libs}")
+endif ()
 
 if (APPLE)
     set(USE_NATIVE_MENU_DEFINE "-DUSE_NATIVE_MENU")

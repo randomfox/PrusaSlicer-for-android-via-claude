@@ -4,7 +4,6 @@
 #include "Slic3r/Biz/Expr/Parser.hpp"
 #include "Slic3r/Biz/Expr/Eval.hpp"
 #include <nlohmann/json.hpp>
-#include <yaml-cpp/exceptions.h>
 
 namespace Slic3r::Domain::Expr {
 

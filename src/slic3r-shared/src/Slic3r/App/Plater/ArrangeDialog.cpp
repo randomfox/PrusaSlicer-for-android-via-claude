@@ -258,7 +258,7 @@ ArrangeDialog::ArrangeDialog(
     rotation_row->emplace_back<Text>(_u8L("Rotations (slow)"));
 
     m_geometry_handling = rotation_geometry_section->emplace_back<Yoga::ComboBox>(
-        std::initializer_list{_u8L("Fast geometry"),
+        std::initializer_list<std::string>{_u8L("Fast geometry"),
                               _u8L("Balanced geometry"),
                               _u8L("Accurate geometry")});
     m_geometry_handling->set_max_width(preffered_max_width());

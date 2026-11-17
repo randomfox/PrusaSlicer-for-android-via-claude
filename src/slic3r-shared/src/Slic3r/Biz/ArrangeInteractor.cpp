@@ -836,7 +836,7 @@ void ArrangeInteractor::arrange_added_instances(
 
 void ArrangeInteractor::process_added_arrange_queue()
 {
-    const constexpr Settings ARRANGE_SETTINGS{
+    const Settings ARRANGE_SETTINGS{
         .strategy        = Arrange::Strategy::Gravity,
         .scaled_offset   = Algorithms::Scaling::scaled(3.0),
         .allow_rotations = false

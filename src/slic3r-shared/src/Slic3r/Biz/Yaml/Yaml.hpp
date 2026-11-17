@@ -732,7 +732,7 @@ Result<bool> try_parse_discriminated_struct(
         if (loader_load != nullptr) {
             Result<T> s = parse_struct<T>(node);
             if (!s.has_value()) {
-                return unexpected{s.error()};
+                return tl::make_unexpected(s.error());
             }
             loader_load(std::move(*s));
         }

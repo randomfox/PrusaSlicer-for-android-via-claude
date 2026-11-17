@@ -49,7 +49,7 @@ cmake -S "${repo_root}" -B "${app_build}" -G Ninja \
     -DCMAKE_PREFIX_PATH="${deps_prefix}" \
     -DSLIC3R_PCH=OFF \
     -DSLIC3R_RELEASE_DEBUG_SYMBOLS=OFF
-cmake --build "${app_build}" --target prusaslicer-jni -- -j"${jobs}"
+cmake --build "${app_build}" --target prusaslicer-jni prusaslicer-android-cli -- -j"${jobs}"
 
 jni_dir="${repo_root}/android/app/src/main/jniLibs/${abi}"
 mkdir -p "${jni_dir}"

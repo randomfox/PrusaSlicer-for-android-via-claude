@@ -10,17 +10,8 @@
 // stderr are redirected into logFile for the duration of the call, so the app can show
 // what happened.
 
-#include "Slic3r/App/CLI/CLIApp.hpp"
-#include "Slic3r/App/Launcher/ReadCLI.hpp"
-#include "Slic3r/App/AppConfig.hpp"
-#include "Slic3r/App/AppServices.hpp"
-#include "Slic3r/App/Init.hpp"
-#include "Slic3r/Assert.hpp"
-#include "Slic3r/Log.hpp"
+#include "AndroidCli.hpp"
 #include "Slic3r/Version.hpp"
-#include "libslic3r/Utils.hpp"
-
-#include <CLI/CLI.hpp>
 
 #include <android/log.h>
 #include <fcntl.h>
@@ -96,44 +87,6 @@ private:
     int m_saved_err{-1};
 };
 
-int run_cli(std::vector<std::string> args)
-{
-    args.insert(args.begin(), "prusa-slicer");
-
-    std::vector<char*> argv;
-    argv.reserve(args.size() + 1);
-    for (std::string& arg : args) {
-        argv.push_back(arg.data());
-    }
-    argv.push_back(nullptr);
-
-    CLI::App app{std::string{SLIC3R_BUILD_ID} + " for Android", "prusa-slicer"};
-    Slic3r::App::InitParams init_params = Slic3r::App::Launcher::read_cli(
-        app, SLIC3R_VERSION, static_cast<int>(args.size()), argv.data()
-    );
-    if (init_params.exit_code.has_value()) {
-        return init_params.exit_code.value();
-    }
-
-    // Without --datadir, the default data directory is derived from XDG_CONFIG_HOME,
-    // which nativeInit() points into the app's private storage.
-    Slic3r::App::init_paths(init_params);
-
-    if (init_params.misc.loglevel.has_value()) {
-        Slic3r::set_log_level(init_params.misc.loglevel.value());
-    }
-    if (init_params.misc.threads.has_value()) {
-        Slic3r::thread_count = init_params.misc.threads.value();
-    }
-
-    if (!init_params.action.has_any_action() || init_params.action.gcode_viewer) {
-        std::fprintf(stderr, "No action given. The Android build supports command line actions only, e.g. --export-gcode.\n");
-        return EXIT_FAILURE;
-    }
-
-    return Slic3r::App::CLI::run(init_params);
-}
-
 } // namespace
 
 extern "C" {
@@ -147,24 +100,8 @@ JNIEXPORT jint JNICALL Java_org_prusaslicer_android_NativeSlicer_nativeInit(
     const std::string data      = to_string(env, data_dir);
     const std::string cache     = to_string(env, cache_dir);
 
-    // Directories.cpp resolves the platform directories from these on Linux-like systems.
-    ::setenv("PRUSASLICER_RESOURCES_DIR", resources.c_str(), 1);
-    ::setenv("HOME", data.c_str(), 1);
-    ::setenv("XDG_CONFIG_HOME", data.c_str(), 1);
-    ::setenv("XDG_CACHE_HOME", cache.c_str(), 1);
-    ::setenv("TMPDIR", cache.c_str(), 1);
-
-    if (g_initialized) {
-        return 0;
-    }
-
     try {
-        Slic3r::App::init_common();
-        Slic3r::App::init_paths(Slic3r::App::InitParams{});
-        Slic3r::init_assert();
-
-        auto& app_services{Slic3r::App::AppServices::instance()};
-        app_services.set_app_config(Slic3r::App::AppConfig::create_app_config());
+        Slic3r::App::Android::initialize(resources, data, cache);
     } catch (const std::exception& ex) {
         __android_log_print(ANDROID_LOG_ERROR, log_tag, "Initialization failed: %s", ex.what());
         return -1;
@@ -195,7 +132,7 @@ JNIEXPORT jint JNICALL Java_org_prusaslicer_android_NativeSlicer_nativeRun(
 
     OutputRedirect redirect{to_string(env, jlog_file)};
     try {
-        return run_cli(std::move(args));
+        return Slic3r::App::Android::run(std::move(args));
     } catch (const std::exception& ex) {
         std::fprintf(stderr, "Error: %s\n", ex.what());
         __android_log_print(ANDROID_LOG_ERROR, log_tag, "Slicing failed: %s", ex.what());

@@ -2,6 +2,7 @@
 
 #include "Slic3r/Biz/Algorithms/TriangleMesh.hpp"
 #include "Slic3r/Domain/Types.hpp"
+#include "Slic3r/Assert.hpp"
 
 using Slic3r::Domain::Vec3f;
 using Slic3r::Domain::Vec2f;
