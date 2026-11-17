@@ -6,6 +6,9 @@
 #include <spdlog/sinks/msvc_sink.h>
 #endif
 #include <spdlog/sinks/rotating_file_sink.h>
+#ifdef __ANDROID__
+#include <spdlog/sinks/android_sink.h>
+#endif
 
 namespace Slic3r {
 
@@ -48,6 +51,13 @@ void init_logging()
 #if defined(WIN32) || defined(_WIN32) || defined(__WIN32__) || defined(__NT__)
     msvc_sink = std::make_shared<spdlog::sinks::msvc_sink_mt>();
     spdlog::apply_all([&](std::shared_ptr<spdlog::logger> l) { l->sinks().push_back(msvc_sink); });
+#endif
+#ifdef __ANDROID__
+    // Android discards stdout/stderr: log to logcat, and flush the log file on every message
+    // so that it survives a crash.
+    static auto android_sink = std::make_shared<spdlog::sinks::android_sink_mt>("PrusaSlicer");
+    spdlog::apply_all([&](std::shared_ptr<spdlog::logger> l) { l->sinks().push_back(android_sink); });
+    spdlog::flush_on(spdlog::level::trace);
 #endif
     spdlog::set_level(s_current_log_level);
     if (!file_log_config.log_file.empty()) {

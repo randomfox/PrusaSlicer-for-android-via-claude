@@ -8,9 +8,20 @@
 #include "gui/MobileApp.hpp"
 
 #include "Slic3r/Log.hpp"
+#include "Slic3r/Version.hpp"
 
 #include <android/log.h>
 #include <jni.h>
+#include <pthread.h>
+
+#include <dlfcn.h>
+#include <fcntl.h>
+#include <signal.h>
+#include <unistd.h>
+#include <unwind.h>
+
+#include <cstdio>
+#include <cstring>
 
 #include <exception>
 #include <memory>
@@ -26,6 +37,17 @@ namespace {
 constexpr const char* log_tag = "PrusaSlicerGui";
 
 JavaVM* g_vm = nullptr;
+pthread_key_t g_detach_key;
+pthread_once_t g_detach_key_once = PTHREAD_ONCE_INIT;
+
+// Native threads (job workers, TBB) that call into Java get attached to the VM. Android aborts
+// the process when an attached thread exits without detaching, so detach on thread exit.
+void detach_current_thread(void*)
+{
+    if (g_vm != nullptr) {
+        g_vm->DetachCurrentThread();
+    }
+}
 
 JNIEnv* env_for_thread()
 {
@@ -34,7 +56,11 @@ JNIEnv* env_for_thread()
         return nullptr;
     }
     if (g_vm->GetEnv(reinterpret_cast<void**>(&env), JNI_VERSION_1_6) != JNI_OK) {
-        g_vm->AttachCurrentThread(&env, nullptr);
+        if (g_vm->AttachCurrentThread(&env, nullptr) != JNI_OK) {
+            return nullptr;
+        }
+        pthread_once(&g_detach_key_once, []() { pthread_key_create(&g_detach_key, detach_current_thread); });
+        pthread_setspecific(g_detach_key, env); // non-null value -> destructor runs at thread exit
     }
     return env;
 }
@@ -165,6 +191,65 @@ private:
     jmethodID m_set_text_input;
 };
 
+// ---- Crash reporting ---------------------------------------------------------------------
+// Writes the signal and a backtrace (library + offset, resolvable against the unstripped
+// library) into <data dir>/last_crash.txt, which the app offers to share on the next start.
+
+int g_crash_fd = -1;
+struct sigaction g_old_actions[NSIG];
+
+void write_str(const char* s) { if (g_crash_fd >= 0) (void) !::write(g_crash_fd, s, strlen(s)); }
+
+_Unwind_Reason_Code unwind_callback(struct _Unwind_Context* context, void* arg)
+{
+    int& depth = *static_cast<int*>(arg);
+    const uintptr_t pc = _Unwind_GetIP(context);
+    if (pc == 0 || depth++ > 64) {
+        return _URC_END_OF_STACK;
+    }
+    char line[512];
+    Dl_info info{};
+    if (dladdr(reinterpret_cast<void*>(pc), &info) != 0 && info.dli_fname != nullptr) {
+        const char* lib = strrchr(info.dli_fname, '/');
+        snprintf(line, sizeof(line), "  #%02d pc %08zx  %s (%s)\n", depth, size_t(pc - uintptr_t(info.dli_fbase)),
+                 lib != nullptr ? lib + 1 : info.dli_fname, info.dli_sname != nullptr ? info.dli_sname : "?");
+    } else {
+        snprintf(line, sizeof(line), "  #%02d pc %016zx\n", depth, size_t(pc));
+    }
+    write_str(line);
+    return _URC_NO_REASON;
+}
+
+void crash_handler(int sig, siginfo_t* info, void* ucontext)
+{
+    char line[128];
+    snprintf(line, sizeof(line), "Fatal signal %d (code %d, fault addr %p)\n", sig, info != nullptr ? info->si_code : 0,
+             info != nullptr ? info->si_addr : nullptr);
+    write_str(line);
+    int depth = 0;
+    _Unwind_Backtrace(unwind_callback, &depth);
+    if (g_crash_fd >= 0) {
+        ::fsync(g_crash_fd);
+    }
+    // Hand over to the previous handler (Android's debuggerd) to produce the usual tombstone.
+    sigaction(sig, &g_old_actions[sig], nullptr);
+    raise(sig);
+}
+
+void install_crash_handler(const std::string& data_dir)
+{
+    const std::string path = data_dir + "/last_crash.txt";
+    g_crash_fd = ::open(path.c_str(), O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0644);
+    // Empty file = no crash; it is only non-empty when the handler wrote into it.
+    struct sigaction action{};
+    action.sa_sigaction = crash_handler;
+    action.sa_flags     = SA_SIGINFO | SA_ONSTACK;
+    sigemptyset(&action.sa_mask);
+    for (int sig : {SIGSEGV, SIGABRT, SIGBUS, SIGFPE, SIGILL}) {
+        sigaction(sig, &action, &g_old_actions[sig]);
+    }
+}
+
 std::unique_ptr<JniHost> g_host;
 std::unique_ptr<MobileApp> g_app;
 
@@ -200,7 +285,10 @@ JNIEXPORT jint JNICALL Java_org_prusaslicer_android_GuiNative_nativeCreate(
         if (g_app) {
             return 0;
         }
-        Slic3r::App::Android::initialize(to_string(env, resources_dir), to_string(env, data_dir), to_string(env, cache_dir));
+        const std::string data = to_string(env, data_dir);
+        install_crash_handler(data);
+        Slic3r::App::Android::initialize(to_string(env, resources_dir), data, to_string(env, cache_dir));
+        SPDLOG_INFO("{} GUI starting", SLIC3R_BUILD_ID);
         g_host = std::make_unique<JniHost>(env, host);
         g_app  = std::make_unique<MobileApp>(*g_host);
         return 0;

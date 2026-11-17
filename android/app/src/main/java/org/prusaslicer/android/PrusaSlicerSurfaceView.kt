@@ -34,12 +34,15 @@ class PrusaSlicerSurfaceView(context: Context, private val onSurfaceReady: () ->
             override fun onSurfaceCreated(gl: javax.microedition.khronos.opengles.GL10?, config: javax.microedition.khronos.egl.EGLConfig?) {
                 if (contextCreated) {
                     // The EGL context was lost (all GPU resources are gone). PrusaSlicer cannot
-                    // rebuild them yet, so restart the GUI.
-                    post { (context as? GuiActivity)?.restartAfterContextLoss() }
+                    // rebuild them yet, so the GUI has to be restarted.
+                    android.util.Log.w("PrusaSlicerGui", "EGL context lost")
+                    post { (context as? GuiActivity)?.onContextLost() }
                     return
                 }
                 contextCreated = true
-                GuiNative.nativeSurfaceCreated()
+                android.util.Log.i("PrusaSlicerGui", "GL context created")
+                val rc = GuiNative.nativeSurfaceCreated()
+                android.util.Log.i("PrusaSlicerGui", "nativeSurfaceCreated -> $rc")
                 post(onSurfaceReady)
             }
 

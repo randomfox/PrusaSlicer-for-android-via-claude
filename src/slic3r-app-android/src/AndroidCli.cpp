@@ -13,7 +13,10 @@
 
 #include <CLI/CLI.hpp>
 
+#include <boost/filesystem.hpp>
+
 #include <cstdio>
+#include <fstream>
 #include <cstdlib>
 #include <memory>
 #include <mutex>
@@ -48,6 +51,33 @@ private:
 };
 } // namespace
 
+#ifdef __ANDROID__
+namespace {
+// OpenSSL (used by curl) needs a CA bundle file. Android keeps the trusted CA certificates as
+// separate PEM files (named by an old hash scheme OpenSSL cannot look up), so concatenate
+// them into a bundle in the cache directory.
+void setup_ca_bundle(const std::string& cache_dir)
+{
+    namespace fs = boost::filesystem;
+    const fs::path bundle = fs::path(cache_dir) / "cacert.pem";
+    boost::system::error_code ec;
+    if (!fs::exists(bundle, ec) || fs::file_size(bundle, ec) == 0) {
+        std::ofstream out(bundle.string(), std::ios::binary | std::ios::trunc);
+        for (const char* dir : {"/apex/com.android.conscrypt/cacerts", "/system/etc/security/cacerts"}) {
+            if (!fs::is_directory(dir, ec)) {
+                continue;
+            }
+            for (fs::directory_iterator it{dir, ec}, end; !ec && it != end; it.increment(ec)) {
+                std::ifstream in(it->path().string(), std::ios::binary);
+                out << in.rdbuf() << '\n';
+            }
+        }
+    }
+    ::setenv("SSL_CERT_FILE", bundle.string().c_str(), 1);
+}
+} // namespace
+#endif // __ANDROID__
+
 void initialize(const std::string& resources_dir, const std::string& data_dir, const std::string& cache_dir)
 {
     // Directories.cpp resolves the platform directories from these on Linux-like systems,
@@ -57,6 +87,9 @@ void initialize(const std::string& resources_dir, const std::string& data_dir, c
     ::setenv("XDG_CONFIG_HOME", data_dir.c_str(), 1);
     ::setenv("XDG_CACHE_HOME", cache_dir.c_str(), 1);
     ::setenv("TMPDIR", cache_dir.c_str(), 1);
+#ifdef __ANDROID__
+    setup_ca_bundle(cache_dir);
+#endif
 
     std::call_once(g_init_flag, []() {
         Slic3r::App::init_common();

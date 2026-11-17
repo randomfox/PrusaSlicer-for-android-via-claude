@@ -18,4 +18,8 @@
         android:id="@+id/action_quick_slice"
         android:title="@string/quick_slice"
         app:showAsAction="never" />
+    <item
+        android:id="@+id/action_share_log"
+        android:title="@string/share_log"
+        app:showAsAction="never" />
 </menu>

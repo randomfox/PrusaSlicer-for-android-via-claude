@@ -70,7 +70,62 @@ class GuiActivity : AppCompatActivity() {
         })
 
         collectIncoming(intent)
+        checkPreviousCrash()
         startNative()
+    }
+
+    // ---- Crash reports -------------------------------------------------------------------
+
+    private val sessionMarker by lazy { File(filesDir, "gui_session.marker") }
+    private val crashFile by lazy { File(filesDir, "data/last_crash.txt") }
+
+    override fun onStart() {
+        super.onStart()
+        sessionMarker.writeText(System.currentTimeMillis().toString())
+    }
+
+    override fun onStop() {
+        sessionMarker.delete()
+        super.onStop()
+    }
+
+    /** The previous session ended while the GUI was in the foreground: offer the log. */
+    private fun checkPreviousCrash() {
+        val crashed = sessionMarker.exists() || (crashFile.exists() && crashFile.length() > 0)
+        if (!crashed) return
+        MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.crash_title)
+            .setMessage(R.string.crash_message)
+            .setPositiveButton(R.string.share_log) { _, _ -> shareLog() }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
+
+    private fun shareLog() {
+        val report = File(cacheDir, "output/prusaslicer-android-report.txt")
+        report.parentFile?.mkdirs()
+        report.bufferedWriter().use { out ->
+            out.write("PrusaSlicer for Android ${packageManager.getPackageInfo(packageName, 0).versionName}\n")
+            out.write("Device: ${Build.MANUFACTURER} ${Build.MODEL}, Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})\n\n")
+            if (crashFile.exists() && crashFile.length() > 0) {
+                out.write("==== Native crash ====\n")
+                out.write(crashFile.readText())
+                out.write("\n")
+            }
+            File(filesDir, "data").walkTopDown()
+                .filter { it.name == "log.txt" && it.parentFile?.name == "shared_runtime" }
+                .forEach { log ->
+                    out.write("==== ${log.name} (last 400 lines) ====\n")
+                    log.readLines().takeLast(400).forEach { out.write(it); out.write("\n") }
+                }
+        }
+        val uri = FileProvider.getUriForFile(this, "$packageName.files", report)
+        val send = Intent(Intent.ACTION_SEND).apply {
+            type = "text/plain"
+            putExtra(Intent.EXTRA_STREAM, uri)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        startActivity(Intent.createChooser(send, getString(R.string.share_log)))
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -102,6 +157,7 @@ class GuiActivity : AppCompatActivity() {
             val result = withContext(Dispatchers.IO) {
                 runCatching {
                     val resources = ResourceInstaller.install(this@GuiActivity)
+                    android.util.Log.i("PrusaSlicerGui", "Resources ready, starting native code")
                     val rc = GuiNative.nativeCreate(
                         resources.absolutePath,
                         File(filesDir, "data").apply { mkdirs() }.absolutePath,
@@ -133,7 +189,16 @@ class GuiActivity : AppCompatActivity() {
         }
     }
 
-    fun restartAfterContextLoss() {
+    fun onContextLost() {
+        MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.app_name)
+            .setMessage(R.string.context_lost)
+            .setCancelable(false)
+            .setPositiveButton(R.string.restart) { _, _ -> restartAfterContextLoss() }
+            .show()
+    }
+
+    private fun restartAfterContextLoss() {
         val intent = Intent(this, GuiActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         startActivity(intent)
         finishAffinity()
@@ -302,6 +367,7 @@ class GuiActivity : AppCompatActivity() {
         R.id.action_zoom_in -> { setUiZoom(uiZoom() + 0.1f); true }
         R.id.action_zoom_out -> { setUiZoom(uiZoom() - 0.1f); true }
         R.id.action_quick_slice -> { startActivity(Intent(this, MainActivity::class.java)); true }
+        R.id.action_share_log -> { shareLog(); true }
         else -> super.onOptionsItemSelected(item)
     }
 
