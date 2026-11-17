@@ -11,8 +11,10 @@ This is an experimental Android port of PrusaSlicer. It is being done in stages:
    (plater, object list, settings sidebar, slicing, G-code preview, export) runs on OpenGL
    ES 3.2 with touch input. Landscape only for now. The stage 1 screen is still available
    as "Quick slice" from the menu.
-3. **Remaining features.** STEP import (OpenCASCADE), printer connectivity, storage
-   integration (not started).
+3. **Remaining features (in progress).** STEP import (OpenCASCADE, linked into the app),
+   embedded web views for Prusa Account login / Prusa Connect / Printables, `prusaslicer://`
+   links (login redirect, "Open in PrusaSlicer"), printer discovery on the local network
+   (Wi-Fi multicast lock for Bonjour).
 
 ## How it is put together
 
@@ -48,6 +50,19 @@ Testing without a device: configure the main project on Linux with `-DSLIC3R_MOB
 and run it with a script (see `src/slic3r-app-android/test/MobileHeadless.cpp`). It renders
 the GUI into an EGL pbuffer with Mesa (OpenGL ES 3.2, llvmpipe), injects touch input and
 writes screenshots.
+
+### Stage 3: platform integration
+
+* STEP: OpenCASCADE is built in `deps/` for Android as well and the OCCT wrapper is linked
+  statically into `libprusaslicer.so` (as on macOS) instead of being a plugin library. The
+  STEP import dialog is not shown; the suggested meshing precision is used.
+* Web views: `MobileWebViewSession` (`src/gui/MobileWebView.*`) is the mobile counterpart of
+  the desktop `WebViewDialog`. It feeds Android `WebView` events (navigation, page loaded,
+  script messages, errors) to PrusaSlicer's browser logic and executes the logic's commands
+  in `WebViewDialog.kt`. JavaScript message handlers (`window._prusaSlicer.postMessage`) are
+  provided by a document start script.
+* `prusaslicer://` links open `GuiActivity` and are passed to PrusaSlicer (login messages go
+  through the app instance message handler, like on the desktop).
 
 ## Building
 

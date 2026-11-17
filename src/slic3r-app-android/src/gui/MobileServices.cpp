@@ -249,9 +249,20 @@ MobileDialogManager::PresetsSwitchStates MobileDialogManager::show_unsaved_chang
     return {};
 }
 
-std::optional<Biz::StepLoadDialogResult> MobileDialogManager::show_load_step_dialog(const std::string&, double, double, bool)
+std::optional<Biz::StepLoadDialogResult> MobileDialogManager::show_load_step_dialog(
+    const std::string& filename, double linear_precision, double angle_precision, bool
+)
 {
-    return std::nullopt;
+    // The desktop asks for the meshing precision; the dialog is synchronous, which a native
+    // Android dialog cannot be on the render thread, so use the suggested defaults
+    // (std::nullopt would mean "cancelled").
+    SPDLOG_INFO("Importing STEP {} with linear precision {}, angle precision {}", filename, linear_precision, angle_precision);
+    return Biz::StepLoadDialogResult{
+        .do_not_show_again = false,
+        .linear_precision  = linear_precision,
+        .angle_precision   = angle_precision,
+        .apply_to_all      = true,
+    };
 }
 
 std::string MobileDialogManager::show_save_dialog(

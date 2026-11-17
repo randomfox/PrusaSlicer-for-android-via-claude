@@ -52,7 +52,6 @@ public:
     void on_user_account_id_success(bool is_refresh, const std::string& username) override;
     void on_user_account_logged_out() override;
     void on_user_account_will_refresh() override;
-    void on_select_printer_from_connect(const std::string&) override {}
 
 protected:
     bool handle_logic_command_LoadURL(const std::string& data) override;
