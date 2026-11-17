@@ -20,7 +20,7 @@ class ProjectSaver;
 namespace PrintHost {
 class PrusaLinkStorageListener;
 }
-class ThumbnailStore;
+struct ThumbnailStore;
 class ThumbnailStoreUpdater;
 namespace Plater {
 class PlaterRenderModule;

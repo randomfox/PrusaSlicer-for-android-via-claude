@@ -4,7 +4,7 @@ plugins {
 }
 
 // PrusaSlicer resources that are bundled into the APK as assets and extracted on first start.
-// Translations and test data are left out to keep the APK small.
+// Test data and the translation sources are left out to keep the APK small.
 // resources/matdb is copied from the dependency build when PrusaSlicer is configured.
 val bundledResources = listOf("presets", "lua", "lua_template", "shaders", "icons", "web", "matdb", "fonts", "shapes")
 val generatedAssets = layout.buildDirectory.dir("generated/prusaslicer-assets")
@@ -20,6 +20,12 @@ val copyPrusaSlicerResources by tasks.registering(Sync::class) {
             exclude("NotoSansCJK-*.ttc")
         }
     }
+    // Translations: only the compiled catalogs (the .po sources are ~40 MB). PrusaSlicer finds
+    // the languages by listing these directories, English is the fallback.
+    from(File(repoRoot, "resources/localization")) {
+        into("localization")
+        include("**/*.mo")
+    }
 }
 
 android {
@@ -30,8 +36,8 @@ android {
         applicationId = "org.prusaslicer.android"
         minSdk = 28
         targetSdk = 35
-        versionCode = 2
-        versionName = "3.0.0-alpha14-android2"
+        versionCode = 3
+        versionName = "3.0.0-alpha14-android3"
 
         ndk {
             abiFilters += listOf("arm64-v8a")

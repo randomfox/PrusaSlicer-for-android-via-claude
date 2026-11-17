@@ -7,6 +7,7 @@
 #include "Slic3r/App/AppConfigProvider.hpp"
 #include "Slic3r/App/AppServices.hpp"
 #include "Slic3r/App/LoadingRenderModule.hpp"
+#include "Slic3r/App/Localization.hpp"
 #include "Slic3r/App/Mouse3D/Mouse3DController.hpp"
 #include "Slic3r/App/Navigator.hpp"
 #include "Slic3r/App/Plater/PlaterRenderModule.hpp"
@@ -143,6 +144,14 @@ void MobileApp::init_services()
     Biz::Scene::BedGeometry::set_resolver(
         [](const std::string& p) -> std::string { return Render::TextureManager::resource_resolver().resolve(p); }
     );
+
+    // Same as Desktop::DesktopApp::init_translations(): select the configured language, or the
+    // best match for the system language (English as the fallback).
+    const std::string language = app_services.app_config().get<std::string>("translation_language");
+    if (!localization().set_language(language)) {
+        SPDLOG_WARN("Switching to language \"{}\" failed", language);
+    }
+    SPDLOG_INFO("Language: {} ({} available)", localization().active_language(), localization().languages().size());
 
     const Theme::Style style = app_services.app_config().get<Theme::Style>("theme");
     app_services.set_theme(std::make_unique<Theme>(style));
