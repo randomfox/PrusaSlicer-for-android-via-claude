@@ -7,8 +7,10 @@ This is an experimental Android port of PrusaSlicer. It is being done in stages:
    native Android app lets you open an STL/3MF/OBJ model, pick a printer, print and
    filament profile from the bundled Prusa presets, slice it, and save or share the
    resulting G-code (`.gcode` or binary `.bgcode`, depending on the printer profile).
-2. **The PrusaSlicer GUI on Android.** Run the existing OpenGL/ImGui based plater and
-   G-code preview on top of OpenGL ES with touch input (not started).
+2. **The PrusaSlicer GUI on Android (in progress).** The full PrusaSlicer 3 interface
+   (plater, object list, settings sidebar, slicing, G-code preview, export) runs on OpenGL
+   ES 3.2 with touch input. Landscape only for now. The stage 1 screen is still available
+   as "Quick slice" from the menu.
 3. **Remaining features.** STEP import (OpenCASCADE), printer connectivity, storage
    integration (not started).
 
@@ -26,6 +28,26 @@ The resources directory is located through the `PRUSASLICER_RESOURCES_DIR` envir
 variable on Android (see `src/slic3r-shared/src/Slic3r/App/Init.cpp`); the data and cache
 directories are derived from `XDG_CONFIG_HOME`/`XDG_CACHE_HOME`, which the app points into
 its private storage.
+
+### Stage 2: the GUI
+
+* `SLIC3R_MOBILE` (implied by Android) builds the GUI without wxWidgets. The render library
+  uses the desktop (core profile) code path; the desktop shaders are translated to GLSL ES
+  3.20 when loaded (`Shader_gl.cpp`), render targets use ES compatible formats (`GLTypes.cpp`).
+* `src/slic3r-app-android/src/gui`: `MobileApp` (start-up, the equivalent of the desktop
+  `DesktopApp`), `MobileRenderCanvas` (renders into the host's GL context, turns touch into
+  mouse input: tap = click, drag = rotate / drag objects, long press = context menu, two
+  finger drag = pan, pinch = zoom) and `MobileServices` (dialogs, file pickers, fonts through
+  `IMobileHost`).
+* Android host: `GuiActivity` + `PrusaSlicerSurfaceView` (GLSurfaceView, soft keyboard,
+  Storage Access Framework pickers). Files PrusaSlicer exports are written to an output
+  folder; the app offers to save or share each new one.
+
+Testing without a device: configure the main project on Linux with `-DSLIC3R_MOBILE=ON`
+(dependencies built with `cmake -S deps -DSLIC3R_MOBILE=ON ...`), build `mobile-headless`
+and run it with a script (see `src/slic3r-app-android/test/MobileHeadless.cpp`). It renders
+the GUI into an EGL pbuffer with Mesa (OpenGL ES 3.2, llvmpipe), injects touch input and
+writes screenshots.
 
 ## Building
 
@@ -88,6 +110,8 @@ prusa-slicer --export-gcode --printer-profile "Original Prusa MK4S HF0.4 nozzle"
   roughly that much before slicing starts.
 * The rendering libraries target OpenGL ES 3.2 (texture buffers); not used yet in stage 1.
 * arm64-v8a only (x86_64 can be built with `PRUSASLICER_ANDROID_ABI=x86_64`, untested).
-* No 3D view or model editing; models are sliced as loaded (auto-arranged and centered).
+* GUI: landscape only; native dialogs that are not supported yet return their default
+  answer (e.g. saving presets under a new name, comparing presets); web based features
+  (Printables, Prusa Connect login) are not available.
 * STEP import, post-processing scripts, printer upload and online preset updates are not
   available.
