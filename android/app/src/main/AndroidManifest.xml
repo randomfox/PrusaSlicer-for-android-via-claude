@@ -3,6 +3,10 @@
 
     <!-- Preset updates and the material database are downloaded from Prusa's servers. -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Printer discovery on the local network (Bonjour / mDNS multicast). -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />
 
     <application
         android:allowBackup="false"
@@ -23,6 +27,13 @@
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <!-- prusaslicer:// links: Prusa Account login redirect, "Open in PrusaSlicer". -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="prusaslicer" />
             </intent-filter>
             <!-- Allow "Open with" / "Share to" for 3D models and projects. -->
             <intent-filter>

@@ -17,6 +17,9 @@
 //   pinch X Y D1 D2 [N]    two finger pinch around X,Y from distance D1 to D2
 //   open PATH              open a model/project file
 //   pick PATH              answer the next file picker with PATH
+//   url URL                open a prusaslicer:// link
+//   webview_loaded URL     report a page load in the last opened web view
+//   webview_navigate URL   report a navigation request in the last opened web view
 //   answer N               answer the next question with button N (default 0)
 //   text STRING            type text
 //   key CODE               press and release an Android key code
@@ -95,6 +98,18 @@ public:
     void offer_output_file(const std::string& path) override { std::printf("[host] output file %s\n", path.c_str()); }
     void open_url(const std::string& url) override { std::printf("[host] open url %s\n", url.c_str()); }
     void set_text_input_active(bool active) override { std::printf("[host] soft keyboard %s\n", active ? "shown" : "hidden"); }
+
+    int last_webview{-1};
+    void open_webview(int id, const std::string& title, const std::string& url, const std::vector<std::string>& handlers) override
+    {
+        last_webview = id;
+        std::printf("[host] webview %d open \"%s\" %s (%zu message handlers)\n", id, title.c_str(), url.c_str(), handlers.size());
+    }
+    void webview_command(int id, WebViewCommand command, const std::string& data, const std::string& extra) override
+    {
+        static const char* names[] = {"LoadUrl", "LoadUrlWithToken", "RunScript", "AddUserScript", "DeleteCookies", "Reload", "OpenExternal", "Close"};
+        std::printf("[host] webview %d %s %.160s%s\n", id, names[int(command)], data.c_str(), extra.empty() ? "" : " (+token)");
+    }
 };
 
 struct Headless
@@ -282,6 +297,14 @@ int main(int argc, char** argv)
             frames(3);
         } else if (cmd == "open") {
             std::string path; in >> path; app.open_files({path}); frames(5);
+        } else if (cmd == "url") {
+            std::string url; in >> url; app.open_app_url(url); frames(5);
+        } else if (cmd == "webview_loaded") {
+            std::string url; in >> url; app.on_webview_loaded(host.last_webview, url); frames(3);
+        } else if (cmd == "webview_navigate") {
+            std::string url; in >> url;
+            std::printf("[headless] navigation allowed: %d\n", int(app.on_webview_navigation(host.last_webview, url, "")));
+            frames(3);
         } else if (cmd == "pick") {
             std::string path; in >> path; host.pick_answers.push_back(path);
         } else if (cmd == "answer") {

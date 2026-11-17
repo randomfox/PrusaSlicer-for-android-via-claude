@@ -41,6 +41,29 @@ public:
 
     /// ImGui wants (or no longer wants) text input: show/hide the soft keyboard.
     virtual void set_text_input_active(bool active) = 0;
+
+    // ---- Web views (Prusa Account login, Prusa Connect, Printables) ---------------------
+    // PrusaSlicer's browser logic drives an embedded web view: the host shows it and reports
+    // its events (MobileApp::on_webview_*), PrusaSlicer answers with commands.
+
+    enum class WebViewCommand {
+        LoadUrl,          ///< data = URL
+        LoadUrlWithToken, ///< data = URL, extra = access token ("Authorization: External <token>")
+        RunScript,        ///< data = JavaScript
+        AddUserScript,    ///< data = JavaScript to run at the start of every page
+        DeleteCookies,    ///< data = URL whose cookies to delete
+        Reload,
+        OpenExternal,     ///< data = URL to open in the system browser
+        Close,            ///< closes the web view (the session ends)
+    };
+
+    /// Opens a web view. `handler_names` are the JavaScript objects with postMessage() the page
+    /// uses to talk to PrusaSlicer (reported via MobileApp::on_webview_script_message).
+    virtual void open_webview(
+        int id, const std::string& title, const std::string& url, const std::vector<std::string>& handler_names
+    ) = 0;
+
+    virtual void webview_command(int id, WebViewCommand command, const std::string& data, const std::string& extra) = 0;
 };
 
 } // namespace Slic3r::App::Mobile

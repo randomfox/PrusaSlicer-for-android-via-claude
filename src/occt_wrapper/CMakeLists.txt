@@ -1,8 +1,10 @@
 cmake_minimum_required(VERSION 3.13)
 project(OCCTWrapper)
 
-if (APPLE)
-    # TODO: we need to fix notarization with the separate shared library
+if (APPLE OR ANDROID)
+    # Apple: TODO: we need to fix notarization with the separate shared library.
+    # Android: native code lives inside the APK, there is no executable directory to load a
+    # plugin library from, so OpenCASCADE is linked into the app library.
     add_library(OCCTWrapper STATIC OCCTWrapper.cpp)
 else ()
     add_library(OCCTWrapper MODULE OCCTWrapper.cpp)

@@ -135,10 +135,9 @@ endif ()
 
 if (SLIC3R_MOBILE)
     # Desktop-only, GUI-toolkit, test-only or optional packages that are not built for Android.
-    # OCCT (STEP import) is optional and skipped for now.
     set(_android_excludes
         wxWidgets GLEW GLFW OpenCSG SDL hidapi libspnav sentry Catch2 Trumpeloeil
-        OCCT libfyaml yamlCpp z3)
+        libfyaml yamlCpp z3)
     string(REPLACE ";" "|" _android_excludes "${_android_excludes}")
     if (${PROJECT_NAME}_PACKAGE_EXCLUDES)
         set(${PROJECT_NAME}_PACKAGE_EXCLUDES "${${PROJECT_NAME}_PACKAGE_EXCLUDES}|${_android_excludes}")

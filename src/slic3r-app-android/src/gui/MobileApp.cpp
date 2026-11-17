@@ -23,6 +23,7 @@
 #include "Slic3r/App/ThumbnailStore.hpp"
 #include "Slic3r/App/ThumbnailStoreUpdater.hpp"
 #include "Slic3r/App/Undo/Store.hpp"
+#include "Slic3r/Biz/Algorithms/StringUtils.hpp"
 #include "Slic3r/Biz/AppInstance/AppInstanceMessageHandlerFactory.hpp"
 #include "Slic3r/Biz/FileLoadingLogic.hpp"
 #include "Slic3r/Biz/FileOpen/FileOpeningInteractor.hpp"
@@ -36,6 +37,7 @@
 #include "Slic3r/Log.hpp"
 
 #include <boost/filesystem/exception.hpp>
+#include <nlohmann/json.hpp>
 #include <boost/filesystem/path.hpp>
 
 namespace fs = boost::filesystem;
@@ -87,7 +89,18 @@ bool MobileApp::render_frame()
         m_files_to_open.clear();
         open_files(files);
     }
-    return m_canvas->render_frame();
+    if (m_init_completed && !m_urls_to_open.empty()) {
+        std::vector<std::string> urls = std::move(m_urls_to_open);
+        m_urls_to_open.clear();
+        for (const std::string& url : urls) {
+            open_app_url(url);
+        }
+    }
+    const bool more = m_canvas->render_frame();
+    if (m_dialog_manager != nullptr) {
+        m_dialog_manager->collect_closed_webviews();
+    }
+    return more;
 }
 
 void MobileApp::on_question_answered(int request_id, int button_index)
@@ -102,6 +115,65 @@ void MobileApp::on_files_picked(int request_id, const std::vector<std::string>& 
 {
     if (m_dialog_manager != nullptr) {
         m_dialog_manager->on_files_picked(request_id, paths);
+    }
+    m_host.request_render();
+}
+
+void MobileApp::open_app_url(const std::string& url)
+{
+    if (!m_init_completed) {
+        m_urls_to_open.push_back(url);
+        return;
+    }
+    if (url.rfind("prusaslicer://login", 0) == 0) {
+        // Same path as a login redirect forwarded from another desktop instance.
+        nlohmann::json message;
+        message["type"] = "LOGIN";
+        message["data"] = Biz::Algorithms::escape_strings_cstyle({url});
+        PlatformServices::instance().app_instance_message_handler().handle_message(message.dump());
+    } else if (url.rfind("prusaslicer://open", 0) == 0) {
+        m_project_interactor->on_download_models({url});
+    } else {
+        SPDLOG_WARN("Unsupported link: {}", url);
+    }
+    m_host.request_render();
+}
+
+bool MobileApp::on_webview_navigation(int id, const std::string& url, const std::string& current_url)
+{
+    MobileWebViewSession* session = m_dialog_manager != nullptr ? m_dialog_manager->webview(id) : nullptr;
+    const bool allow = session == nullptr || session->on_navigation(url, current_url);
+    m_host.request_render();
+    return allow;
+}
+
+void MobileApp::on_webview_loaded(int id, const std::string& url)
+{
+    if (MobileWebViewSession* session = m_dialog_manager != nullptr ? m_dialog_manager->webview(id) : nullptr) {
+        session->on_loaded(url);
+    }
+    m_host.request_render();
+}
+
+void MobileApp::on_webview_script_message(int id, const std::string& message)
+{
+    if (MobileWebViewSession* session = m_dialog_manager != nullptr ? m_dialog_manager->webview(id) : nullptr) {
+        session->on_script_message(message);
+    }
+    m_host.request_render();
+}
+
+void MobileApp::on_webview_error(int id, const std::string& description)
+{
+    if (MobileWebViewSession* session = m_dialog_manager != nullptr ? m_dialog_manager->webview(id) : nullptr) {
+        session->on_error(description);
+    }
+}
+
+void MobileApp::on_webview_dismissed(int id)
+{
+    if (MobileWebViewSession* session = m_dialog_manager != nullptr ? m_dialog_manager->webview(id) : nullptr) {
+        session->on_dismissed();
     }
     m_host.request_render();
 }

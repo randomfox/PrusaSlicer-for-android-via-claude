@@ -51,7 +51,8 @@ if (ANDROID)
 endif ()
 
 if (SLIC3R_MOBILE)
-    set(SLIC3R_ENABLE_FORMAT_STEP OFF)
+    # STEP: OpenCASCADE is linked statically into the app (see src/occt_wrapper).
+    option(SLIC3R_ENABLE_FORMAT_STEP "Support STEP loading (requires OpenCASCADE)" ON)
     set(SLIC3R_BUILD_TESTS OFF)
     set(SLIC3R_GUI ON)
     set(SLIC3R_OPENGL_ES ON)

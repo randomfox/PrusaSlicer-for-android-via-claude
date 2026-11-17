@@ -32,6 +32,7 @@ class GuiActivity : AppCompatActivity() {
     private lateinit var binding: ActivityGuiBinding
     private var surface: PrusaSlicerSurfaceView? = null
     private val pendingOpen = mutableListOf<Uri>()
+    private val pendingUrls = mutableListOf<String>()
     private var outputObserver: FileObserver? = null
     private val prefs by lazy { getSharedPreferences("gui", MODE_PRIVATE) }
     private val mainHandler = Handler(Looper.getMainLooper())
@@ -134,12 +135,21 @@ class GuiActivity : AppCompatActivity() {
         if (surface != null) flushPendingOpen()
     }
 
+    // Android filters multicast packets unless an app holds this lock: needed to discover
+    // printers (PrusaLink, OctoPrint) with Bonjour / mDNS.
+    private val multicastLock by lazy {
+        (applicationContext.getSystemService(WIFI_SERVICE) as android.net.wifi.WifiManager)
+            .createMulticastLock("PrusaSlicer printer discovery").apply { setReferenceCounted(false) }
+    }
+
     override fun onResume() {
         super.onResume()
         surface?.onResume()
+        runCatching { multicastLock.acquire() }
     }
 
     override fun onPause() {
+        runCatching { multicastLock.release() }
         surface?.onPause()
         super.onPause()
     }
@@ -208,6 +218,14 @@ class GuiActivity : AppCompatActivity() {
     // ---- Opening files -------------------------------------------------------------------
 
     private fun collectIncoming(intent: Intent?) {
+        val data = intent?.data
+        if (intent?.action == Intent.ACTION_VIEW && data?.scheme == "prusaslicer") {
+            // Prusa Account login redirect or "Open in PrusaSlicer" link.
+            val url = data.toString()
+            if (surface != null) surface?.let { it.queueEvent { GuiNative.nativeOpenUrl(url) }; it.requestRender() }
+            else pendingUrls += url
+            return
+        }
         when (intent?.action) {
             Intent.ACTION_VIEW -> intent.data?.let { pendingOpen += it }
             Intent.ACTION_SEND -> {
@@ -219,6 +237,11 @@ class GuiActivity : AppCompatActivity() {
     }
 
     private fun flushPendingOpen() {
+        if (pendingUrls.isNotEmpty()) {
+            val urls = pendingUrls.toList()
+            pendingUrls.clear()
+            surface?.queueEvent { urls.forEach { GuiNative.nativeOpenUrl(it) } }
+        }
         if (pendingOpen.isEmpty()) return
         val uris = pendingOpen.toList()
         pendingOpen.clear()
@@ -421,5 +444,41 @@ class GuiActivity : AppCompatActivity() {
         override fun setTextInputActive(active: Boolean) {
             mainHandler.post { surface?.setSoftKeyboardVisible(active) }
         }
+
+        override fun openWebView(id: Int, title: String, url: String, handlerNames: Array<String>) {
+            mainHandler.post {
+                val dialog = WebViewDialog(
+                    this@GuiActivity, id, title.ifEmpty { getString(R.string.app_name) }, url, handlerNames.toList(),
+                    postNative = { block -> surface?.let { it.queueEvent(block); it.requestRender() } },
+                    callNative = { block -> callOnGlThread(block) },
+                )
+                webViews[id] = dialog
+                dialog.start()
+            }
+        }
+
+        override fun webViewCommand(id: Int, command: Int, data: String, extra: String) {
+            mainHandler.post { webViews[id]?.command(command, data, extra) }
+        }
+    }
+
+    private val webViews = mutableMapOf<Int, WebViewDialog>()
+
+    fun onWebViewClosed(id: Int) {
+        webViews.remove(id)
+    }
+
+    /** Runs [block] on the GL thread (PrusaSlicer's main thread) and waits for its result. */
+    private fun callOnGlThread(block: () -> Boolean): Boolean {
+        val view = surface ?: return true
+        val latch = java.util.concurrent.CountDownLatch(1)
+        var result = true
+        view.queueEvent {
+            result = runCatching(block).getOrDefault(true)
+            latch.countDown()
+        }
+        view.requestRender()
+        latch.await(3, java.util.concurrent.TimeUnit.SECONDS)
+        return result
     }
 }

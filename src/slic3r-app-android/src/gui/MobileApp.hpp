@@ -66,6 +66,16 @@ public:
     /// Opens model/project files (already copied to local storage by the host).
     void open_files(const std::vector<std::string>& paths);
 
+    /// prusaslicer:// links (Prusa Account login redirect, "Open in PrusaSlicer" downloads).
+    void open_app_url(const std::string& url);
+
+    // Web view events (see IMobileHost::open_webview).
+    bool on_webview_navigation(int id, const std::string& url, const std::string& current_url);
+    void on_webview_loaded(int id, const std::string& url);
+    void on_webview_script_message(int id, const std::string& message);
+    void on_webview_error(int id, const std::string& description);
+    void on_webview_dismissed(int id);
+
     // Replies to IMobileHost requests.
     void on_question_answered(int request_id, int button_index);
     void on_files_picked(int request_id, const std::vector<std::string>& paths);
@@ -100,6 +110,7 @@ private:
     std::unique_ptr<PrintHost::PrusaLinkStorageListener> m_prusalink_storage_listener;
     Biz::Preset::IO::BundlePaths m_bundle_paths;
     std::vector<std::string> m_files_to_open;
+    std::vector<std::string> m_urls_to_open;
 };
 
 } // namespace Slic3r::App::Mobile

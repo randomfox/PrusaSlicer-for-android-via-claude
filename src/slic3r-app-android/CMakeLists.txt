@@ -33,6 +33,8 @@ add_library(slic3r-mobile-gui STATIC
     src/gui/MobileRenderCanvas.hpp
     src/gui/MobileServices.cpp
     src/gui/MobileServices.hpp
+    src/gui/MobileWebView.cpp
+    src/gui/MobileWebView.hpp
 )
 target_include_directories(slic3r-mobile-gui PUBLIC src)
 target_link_libraries(slic3r-mobile-gui PUBLIC slic3r-shared slic3r-app-android-core)

@@ -102,6 +102,8 @@ public:
         m_offer_output_file = env->GetMethodID(cls, "offerOutputFile", "(Ljava/lang/String;)V");
         m_open_url          = env->GetMethodID(cls, "openUrl", "(Ljava/lang/String;)V");
         m_set_text_input    = env->GetMethodID(cls, "setTextInputActive", "(Z)V");
+        m_open_webview      = env->GetMethodID(cls, "openWebView", "(ILjava/lang/String;Ljava/lang/String;[Ljava/lang/String;)V");
+        m_webview_command   = env->GetMethodID(cls, "webViewCommand", "(IILjava/lang/String;Ljava/lang/String;)V");
         env->DeleteLocalRef(cls);
     }
 
@@ -157,6 +159,37 @@ public:
         with_env([&](JNIEnv* env) { env->CallVoidMethod(m_host, m_set_text_input, jboolean(active)); });
     }
 
+    void open_webview(int id, const std::string& title, const std::string& url, const std::vector<std::string>& handler_names) override
+    {
+        with_env([&](JNIEnv* env) {
+            jclass string_cls  = env->FindClass("java/lang/String");
+            jobjectArray names = env->NewObjectArray(jsize(handler_names.size()), string_cls, nullptr);
+            for (size_t i = 0; i < handler_names.size(); ++i) {
+                jstring s = env->NewStringUTF(handler_names[i].c_str());
+                env->SetObjectArrayElement(names, jsize(i), s);
+                env->DeleteLocalRef(s);
+            }
+            jstring jtitle = env->NewStringUTF(title.c_str());
+            jstring jurl   = env->NewStringUTF(url.c_str());
+            env->CallVoidMethod(m_host, m_open_webview, jint(id), jtitle, jurl, names);
+            env->DeleteLocalRef(jtitle);
+            env->DeleteLocalRef(jurl);
+            env->DeleteLocalRef(names);
+            env->DeleteLocalRef(string_cls);
+        });
+    }
+
+    void webview_command(int id, WebViewCommand command, const std::string& data, const std::string& extra) override
+    {
+        with_env([&](JNIEnv* env) {
+            jstring jdata  = env->NewStringUTF(data.c_str());
+            jstring jextra = env->NewStringUTF(extra.c_str());
+            env->CallVoidMethod(m_host, m_webview_command, jint(id), jint(command), jdata, jextra);
+            env->DeleteLocalRef(jdata);
+            env->DeleteLocalRef(jextra);
+        });
+    }
+
 private:
     template<typename Fn> void with_env(Fn&& fn)
     {
@@ -189,6 +222,8 @@ private:
     jmethodID m_offer_output_file;
     jmethodID m_open_url;
     jmethodID m_set_text_input;
+    jmethodID m_open_webview;
+    jmethodID m_webview_command;
 };
 
 // ---- Crash reporting ---------------------------------------------------------------------
@@ -366,6 +401,40 @@ JNIEXPORT void JNICALL Java_org_prusaslicer_android_GuiNative_nativeQuestionAnsw
 JNIEXPORT void JNICALL Java_org_prusaslicer_android_GuiNative_nativeFilesPicked(JNIEnv* env, jclass, jint id, jobjectArray paths)
 {
     run_guarded("nativeFilesPicked", [&]() { if (g_app) g_app->on_files_picked(id, to_strings(env, paths)); });
+}
+
+JNIEXPORT void JNICALL Java_org_prusaslicer_android_GuiNative_nativeOpenUrl(JNIEnv* env, jclass, jstring url)
+{
+    run_guarded("nativeOpenUrl", [&]() { if (g_app) g_app->open_app_url(to_string(env, url)); });
+}
+
+JNIEXPORT jboolean JNICALL Java_org_prusaslicer_android_GuiNative_nativeWebViewNavigation(
+    JNIEnv* env, jclass, jint id, jstring url, jstring current_url
+)
+{
+    return guarded("nativeWebViewNavigation", [&]() -> jboolean {
+        return !g_app || g_app->on_webview_navigation(id, to_string(env, url), to_string(env, current_url));
+    }, jboolean(true));
+}
+
+JNIEXPORT void JNICALL Java_org_prusaslicer_android_GuiNative_nativeWebViewLoaded(JNIEnv* env, jclass, jint id, jstring url)
+{
+    run_guarded("nativeWebViewLoaded", [&]() { if (g_app) g_app->on_webview_loaded(id, to_string(env, url)); });
+}
+
+JNIEXPORT void JNICALL Java_org_prusaslicer_android_GuiNative_nativeWebViewScriptMessage(JNIEnv* env, jclass, jint id, jstring message)
+{
+    run_guarded("nativeWebViewScriptMessage", [&]() { if (g_app) g_app->on_webview_script_message(id, to_string(env, message)); });
+}
+
+JNIEXPORT void JNICALL Java_org_prusaslicer_android_GuiNative_nativeWebViewError(JNIEnv* env, jclass, jint id, jstring description)
+{
+    run_guarded("nativeWebViewError", [&]() { if (g_app) g_app->on_webview_error(id, to_string(env, description)); });
+}
+
+JNIEXPORT void JNICALL Java_org_prusaslicer_android_GuiNative_nativeWebViewDismissed(JNIEnv*, jclass, jint id)
+{
+    run_guarded("nativeWebViewDismissed", [&]() { if (g_app) g_app->on_webview_dismissed(id); });
 }
 
 JNIEXPORT jstring JNICALL Java_org_prusaslicer_android_GuiNative_nativeOutputDir(JNIEnv* env, jclass)

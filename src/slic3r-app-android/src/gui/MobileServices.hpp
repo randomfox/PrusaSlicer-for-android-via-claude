@@ -1,6 +1,7 @@
 #pragma once
 
 #include "MobileHost.hpp"
+#include "MobileWebView.hpp"
 
 #include "Slic3r/App/IDialogManager.hpp"
 #include "Slic3r/App/Platform/IFileExplorerHandler.hpp"
@@ -25,6 +26,11 @@ public:
     // Replies from the host.
     void on_question_answered(int request_id, int button_index);
     void on_files_picked(int request_id, const std::vector<std::string>& paths);
+
+    /// Open web view of the given id (nullptr if closed or unknown).
+    MobileWebViewSession* webview(int id);
+    /// Destroys closed web view sessions (called once per frame, outside of their callbacks).
+    void collect_closed_webviews();
 
     /// Files PrusaSlicer is asked to save go into this directory; the host watches it and
     /// offers each new file to the user (see IMobileHost::offer_output_file).
@@ -103,6 +109,7 @@ private:
     int m_next_request_id{1};
     std::map<int, std::function<void(int)>> m_pending_questions;
     std::map<int, FileCallback> m_pending_file_requests;
+    std::map<int, std::unique_ptr<MobileWebViewSession>> m_webviews;
 };
 
 /// There is no file manager to show folders in on Android.

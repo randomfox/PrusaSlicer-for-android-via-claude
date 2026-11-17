@@ -26,7 +26,7 @@
 
 namespace Slic3r::Biz {
 
-#if __APPLE__
+#if defined(__APPLE__) || defined(__ANDROID__)
 extern "C" bool load_step_internal(const char *path, OCCTResult* res, std::optional<std::pair<double, double>> deflections /*= std::nullopt*/);
 #endif
 
@@ -37,7 +37,7 @@ LoadStepFn get_load_step_fn()
 {
     static LoadStepFn load_step_fn = nullptr;
 
-#ifndef __APPLE__
+#if !defined(__APPLE__) && !defined(__ANDROID__)
     constexpr const char* fn_name = "load_step_internal";
 #endif
 
@@ -61,7 +61,7 @@ LoadStepFn get_load_step_fn()
             FreeLibrary(module);
             throw;
         }
-#elif __APPLE__
+#elif defined(__APPLE__) || defined(__ANDROID__)
         load_step_fn = &load_step_internal;
 #else
         libpath /= "OCCTWrapper.so";

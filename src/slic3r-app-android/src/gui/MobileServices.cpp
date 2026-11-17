@@ -124,19 +124,42 @@ std::string MobileDialogManager::show_combo_dialog(const std::string& title, con
     return values.empty() ? std::string{} : values.front();
 }
 
-void MobileDialogManager::show_webview_dialog(std::unique_ptr<Browser::AbstractBrowserLogic>&&, Biz::ProjectInteractor*)
+void MobileDialogManager::show_webview_dialog(std::unique_ptr<Browser::AbstractBrowserLogic>&& logic, Biz::ProjectInteractor* project_interactor)
 {
-    m_host.show_message(IMobileHost::MessageKind::Info, "PrusaSlicer", "Web based dialogs (Printables, Prusa Connect) are not available in this version yet.");
+    const int id = m_next_request_id++;
+    auto session = std::make_unique<MobileWebViewSession>(id, m_host, std::move(logic), project_interactor, nullptr);
+    MobileWebViewSession* ptr = session.get();
+    m_webviews.emplace(id, std::move(session));
+    ptr->open();
 }
 
 void MobileDialogManager::show_upload_webview_dialog(
-    std::unique_ptr<Browser::AbstractUploadBrowserLogic>&&, Biz::ProjectInteractor*, const UploadCallback& callback
+    std::unique_ptr<Browser::AbstractUploadBrowserLogic>&& logic, Biz::ProjectInteractor* project_interactor, const UploadCallback& callback
 )
 {
-    show_webview_dialog(nullptr, nullptr);
-    if (callback) {
-        callback(false, {});
-    }
+    // Unlike on the desktop the dialog is not modal: the callback runs when the web view closes.
+    Browser::AbstractUploadBrowserLogic* upload_logic = logic.get();
+    const int id = m_next_request_id++;
+    auto session = std::make_unique<MobileWebViewSession>(id, m_host, std::move(logic), project_interactor,
+        [upload_logic, callback](bool) {
+            if (callback) {
+                callback(upload_logic->success(), upload_logic->result_data());
+            }
+        });
+    MobileWebViewSession* ptr = session.get();
+    m_webviews.emplace(id, std::move(session));
+    ptr->open();
+}
+
+MobileWebViewSession* MobileDialogManager::webview(int id)
+{
+    auto it = m_webviews.find(id);
+    return it == m_webviews.end() || it->second->is_closed() ? nullptr : it->second.get();
+}
+
+void MobileDialogManager::collect_closed_webviews()
+{
+    std::erase_if(m_webviews, [](const auto& item) { return item.second->is_closed(); });
 }
 
 void MobileDialogManager::show_yesno_dialog(const std::string& title, const std::string& text, const YesNoCallback& callback)
