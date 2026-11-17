@@ -23,7 +23,7 @@ target_include_directories(imgui PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 message(STATUS "Imgui include dir: ${CMAKE_CURRENT_SOURCE_DIR}")
 
 
-if (NOT ANDROID) # The GLFW and SDL backends are not used on Android.
+if (NOT SLIC3R_MOBILE) # The GLFW and SDL backends are not used on Android.
 add_library(imgui_backend_ogl3_glfw STATIC
         imgui/backends/imgui_impl_glfw.h
         imgui/backends/imgui_impl_glfw.cpp
@@ -74,7 +74,7 @@ if (APPLE)
     target_link_libraries(imgui_backend_ogl3_sdl2 PUBLIC "-framework Cocoa" "-framework IOKit")
 endif ()
 
-endif () # NOT ANDROID
+endif () # NOT SLIC3R_MOBILE
 
 add_library(imgui_backend_ogl3 STATIC
         imgui/backends/imgui_impl_opengl3.h

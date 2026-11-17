@@ -126,7 +126,14 @@ if (APPLE)
     )
 endif ()
 
+# Mobile build (see SLIC3R_MOBILE in the top-level CMakeLists.txt): implied by Android, can be
+# enabled on Linux to build the dependencies of a headless test build of the mobile UI layer.
+option(SLIC3R_MOBILE "Build the dependency set of the mobile (Android) configuration" OFF)
 if (ANDROID)
+    set(SLIC3R_MOBILE ON)
+endif ()
+
+if (SLIC3R_MOBILE)
     # Desktop-only, GUI-toolkit, test-only or optional packages that are not built for Android.
     # OCCT (STEP import) is optional and skipped for now.
     set(_android_excludes
@@ -138,7 +145,7 @@ if (ANDROID)
     else ()
         set(${PROJECT_NAME}_PACKAGE_EXCLUDES "${_android_excludes}")
     endif ()
-    dep_message(STATUS "Android build, excluding packages: ${${PROJECT_NAME}_PACKAGE_EXCLUDES}")
+    dep_message(STATUS "Mobile build, excluding packages: ${${PROJECT_NAME}_PACKAGE_EXCLUDES}")
 endif ()
 
 list_projects(FOUND_PACKAGES ${CMAKE_CURRENT_LIST_DIR})

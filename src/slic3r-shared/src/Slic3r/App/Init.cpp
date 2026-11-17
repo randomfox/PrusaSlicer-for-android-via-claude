@@ -97,7 +97,7 @@ void init_common()
 
 #ifdef __EMSCRIPTEN__
     boost::filesystem::path path_resources = "/resources";
-#elif defined(__ANDROID__)
+#elif defined(__ANDROID__) || defined(SLIC3R_MOBILE)
     // On Android the native code lives inside the APK, so the resources cannot be found
     // relative to the binary. The Java side extracts them into the app's private storage
     // and passes the location through the environment.

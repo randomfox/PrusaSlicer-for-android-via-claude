@@ -42,9 +42,15 @@ if (SLIC3R_ENABLE_WIN10_MESH_REPAIR AND NOT WIN32)
     message(FATAL_ERROR "SLIC3R_ENABLE_WIN10_MESH_REPAIR is Windows-only option, but the current platform is not Windows")
 endif()
 
+# Mobile configuration: no wxWidgets/WebKit/desktop integration, rendering through OpenGL ES,
+# the application is hosted by src/slic3r-app-android. Implied by Android; on Linux it builds
+# the same UI layer for headless testing (rendering into an EGL pbuffer with Mesa).
+option(SLIC3R_MOBILE "Mobile (Android) configuration: OpenGL ES, no wxWidgets" OFF)
 if (ANDROID)
-    # Android: no wxWidgets/WebKit/desktop integration. The rendering libraries are
-    # compiled against OpenGL ES, the app itself is driven from Java through JNI.
+    set(SLIC3R_MOBILE ON)
+endif ()
+
+if (SLIC3R_MOBILE)
     set(SLIC3R_ENABLE_FORMAT_STEP OFF)
     set(SLIC3R_BUILD_TESTS OFF)
     set(SLIC3R_GUI ON)
@@ -52,7 +58,12 @@ if (ANDROID)
     set(SLIC3R_ENABLE_WEBKIT OFF)
     set(SLIC3R_SENTRY_DSN "")
     set(SLIC3R_STATIC ON)
-    message(STATUS "Android build (${ANDROID_ABI}, ${ANDROID_PLATFORM})")
+    add_compile_definitions(SLIC3R_MOBILE)
+    if (ANDROID)
+        message(STATUS "Android build (${ANDROID_ABI}, ${ANDROID_PLATFORM})")
+    else ()
+        message(STATUS "Mobile configuration on ${CMAKE_SYSTEM_NAME} (test build)")
+    endif ()
 elseif (NOT EMSCRIPTEN)
     option(SLIC3R_ENABLE_FORMAT_STEP "Support STEP loading (requires OpenCASCADE)" ON)
     option(SLIC3R_BUILD_TESTS "Build unit tests" ON)

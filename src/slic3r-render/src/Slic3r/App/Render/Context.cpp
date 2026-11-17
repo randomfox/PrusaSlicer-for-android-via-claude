@@ -1,4 +1,5 @@
 #include "Slic3r/App/Render/Context.hpp"
+#include <boost/algorithm/string/predicate.hpp>
 
 #include "Slic3r/App/Render/GL/commonGL.hpp"
 #include "Slic3r/App/Render/Device.hpp"

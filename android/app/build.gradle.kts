@@ -4,9 +4,9 @@ plugins {
 }
 
 // PrusaSlicer resources that are bundled into the APK as assets and extracted on first start.
-// Fonts, translations and test data are left out to keep the APK small (stage 1 is CLI-only).
+// Translations and test data are left out to keep the APK small.
 // resources/matdb is copied from the dependency build when PrusaSlicer is configured.
-val bundledResources = listOf("presets", "lua", "lua_template", "shaders", "icons", "web", "matdb")
+val bundledResources = listOf("presets", "lua", "lua_template", "shaders", "icons", "web", "matdb", "fonts", "shapes")
 val generatedAssets = layout.buildDirectory.dir("generated/prusaslicer-assets")
 val repoRoot = rootProject.projectDir.parentFile
 
@@ -14,7 +14,11 @@ val copyPrusaSlicerResources by tasks.registering(Sync::class) {
     description = "Copies PrusaSlicer resources into the APK assets."
     into(generatedAssets.map { it.dir("resources") })
     bundledResources.forEach { dir ->
-        from(File(repoRoot, "resources/$dir")) { into(dir) }
+        from(File(repoRoot, "resources/$dir")) {
+            into(dir)
+            // ~60 MB of CJK fonts: the app uses the ones in /system/fonts instead.
+            exclude("NotoSansCJK-*.ttc")
+        }
     }
 }
 

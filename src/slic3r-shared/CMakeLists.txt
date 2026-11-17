@@ -1432,7 +1432,7 @@ elseif (APPLE)
             src/Slic3r/Biz/RemovableDrive/RemovableDriveMonitorInnerMac.h
             src/Slic3r/Biz/RemovableDrive/RemovableDriveMonitorInnerMac.mm
     )
-elseif (ANDROID)
+elseif (SLIC3R_MOBILE)
     list(APPEND SLIC3R_SHARED_FILES
             src/Slic3r/Biz/SHA256Linux.cpp # OpenSSL based
             src/Slic3r/Biz/AppInstance/AppInstanceMessageHandlerFactoryAndroid.cpp

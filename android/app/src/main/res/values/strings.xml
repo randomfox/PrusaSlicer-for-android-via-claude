@@ -19,4 +19,10 @@
     <string name="status_loading_profiles">Loading profiles…</string>
     <string name="status_slicing">Slicing…</string>
     <string name="no_printers">No printer profiles were found in the bundled presets.</string>
+    <string name="file_ready">%1$s is ready</string>
+    <string name="save_or_share">Save / Share</string>
+    <string name="ui_larger">Larger interface</string>
+    <string name="ui_smaller">Smaller interface</string>
+    <string name="ui_zoom_value">Interface size %1$d%%</string>
+    <string name="quick_slice">Quick slice</string>
 </resources>

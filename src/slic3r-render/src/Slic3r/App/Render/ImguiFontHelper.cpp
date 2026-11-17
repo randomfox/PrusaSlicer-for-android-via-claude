@@ -1,3 +1,4 @@
+#include <boost/algorithm/string/predicate.hpp>
 #include "Slic3r/App/Render/ImguiFontHelper.hpp"
 
 #include "Slic3r/Exception.hpp"
@@ -51,7 +52,19 @@ load_font(const std::string& base_filename, const std::vector<std::string>& addi
     config.MergeMode = true;
 
     for (const std::string& font : std::as_const(additional_fonts)) {
-        const std::string font_path = Slic3r::resources_dir() + "/fonts/" + font;
+        std::string font_path = Slic3r::resources_dir() + "/fonts/" + font;
+#ifdef __ANDROID__
+        // The large CJK/Thai fonts are not bundled with the Android app: use the system ones.
+        if (!boost::filesystem::exists(font_path)) {
+            const std::string system_font =
+                boost::starts_with(font, "NotoSansCJK") ? "NotoSansCJK-Regular.ttc" : font;
+            font_path = "/system/fonts/" + system_font;
+            if (!boost::filesystem::exists(font_path)) {
+                SPDLOG_WARN("Font {} not available, skipping", font);
+                continue;
+            }
+        }
+#endif
         ASSERT(boost::filesystem::exists(font_path), "additional font file does not exists");
         io.Fonts->AddFontFromFileTTF(font_path.c_str(), 0, &config);
     }

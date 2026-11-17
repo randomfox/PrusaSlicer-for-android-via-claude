@@ -31,7 +31,7 @@ if (SLIC3R_GUI)
     # TODO: The following two are GUI only for now, before we can build these
     # targets without GUI dependencies. It requires splitting slic3r-shared first.
     add_subdirectory(slic3r-app-cli)
-    if (NOT ANDROID)
+    if (NOT SLIC3R_MOBILE)
         add_subdirectory(slic3r-app-launcher)
     endif ()
 
@@ -39,7 +39,7 @@ if (SLIC3R_GUI)
     add_subdirectory(slic3r-platform)
     add_subdirectory(libvgcode)
     add_subdirectory(slic3r-shared)
-    if (ANDROID)
+    if (SLIC3R_MOBILE)
         add_subdirectory(slic3r-app-android)
     elseif (NOT EMSCRIPTEN)
         add_subdirectory(slic3r-platform-wx)

@@ -101,8 +101,12 @@ else()
 endif ()
 target_include_directories(slic3r-render PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
-# Texture buffers are core in OpenGL ES 3.2, which the Android port requires.
-if (NOT SLIC3R_OPENGL_ES OR ANDROID)
+if (SLIC3R_OPENGL_ES)
+    target_compile_definitions(slic3r-render PUBLIC SLIC3R_OPENGL_ES=1)
+endif ()
+
+# Texture buffers are core in OpenGL ES 3.2, which the mobile port requires.
+if (NOT SLIC3R_OPENGL_ES OR SLIC3R_MOBILE)
     target_compile_definitions(slic3r-render PUBLIC SLIC3R_RENDER_TEXTURE_BUFFER_SUPPORTED)
 endif ()
 
