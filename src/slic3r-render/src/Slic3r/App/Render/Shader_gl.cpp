@@ -44,6 +44,41 @@ Shader::~Shader()
     }
 }
 
+#ifdef SLIC3R_MOBILE
+namespace {
+// The mobile build renders with OpenGL ES 3.2 using the desktop shaders (GLSL 1.40 - 3.30),
+// which only need a different #version line, default precisions and a few desktop-only
+// keywords removed to compile as GLSL ES 3.20.
+std::string translate_to_glsl_es(std::string source)
+{
+    if (source.compare(0, 8, "#version") != 0 || source.find(" es", 0) < source.find('\n')) {
+        return source;
+    }
+    const size_t eol = source.find('\n');
+    static const std::string header =
+        "#version 320 es\n"
+        "precision highp float;\n"
+        "precision highp int;\n"
+        "precision highp sampler2D;\n"
+        "precision highp sampler3D;\n"
+        "precision highp sampler2DArray;\n"
+        "precision highp sampler2DShadow;\n"
+        "precision highp samplerBuffer;\n"
+        "precision highp isamplerBuffer;\n"
+        "precision highp usamplerBuffer;\n"
+        "precision highp isampler2D;\n"
+        "precision highp usampler2D;\n";
+    source.replace(0, eol == std::string::npos ? source.size() : eol + 1, header);
+
+    // No perspective-incorrect interpolation in GLSL ES (only through an NV extension).
+    for (size_t pos = source.find("noperspective "); pos != std::string::npos; pos = source.find("noperspective ", pos)) {
+        source.erase(pos, 14);
+    }
+    return source;
+}
+} // namespace
+#endif // SLIC3R_MOBILE
+
 bool Shader::init_from_files(const std::string& name, const ShaderFilenames& filenames, const std::initializer_list<std::string_view> &defines)
 {
     // Load a shader program from file, prepend defs block.
@@ -91,6 +126,9 @@ bool Shader::init_from_files(const std::string& name, const ShaderFilenames& fil
     ShaderSources sources = {};
     for (size_t i = 0; i < static_cast<size_t>(ShaderType::Count); ++i) {
         sources[i] = filenames[i].empty() ? std::string() : load_from_file(filenames[i], defines_program);
+#ifdef SLIC3R_MOBILE
+        sources[i] = translate_to_glsl_es(std::move(sources[i]));
+#endif
     }
 
     bool valid = !sources[static_cast<size_t>(ShaderType::Vertex)].empty() && !sources[static_cast<size_t>(ShaderType::Fragment)].empty() && sources[static_cast<size_t>(ShaderType::Compute)].empty();

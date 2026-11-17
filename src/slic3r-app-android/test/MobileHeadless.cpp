@@ -3,7 +3,7 @@
 // Runs the same MobileApp as the Android app, rendering into an EGL pbuffer (Mesa llvmpipe
 // works fine), and executes a small script to interact with it and take screenshots:
 //
-//   mobile-headless [--size WxH] [--scale S] <script>
+//   mobile-headless [--size WxH] [--scale S] [--skip-welcome] <script>
 //
 // Script commands (one per line, coordinates in physical pixels, '#' starts a comment):
 //   frames N               render N frames
@@ -24,6 +24,8 @@
 #include "AndroidCli.hpp"
 #include "gui/MobileApp.hpp"
 
+#include "Slic3r/App/AppConfig.hpp"
+#include "Slic3r/App/AppServices.hpp"
 #include "Slic3r/Log.hpp"
 
 #include <EGL/egl.h>
@@ -145,11 +147,14 @@ int main(int argc, char** argv)
 {
     Headless gl;
     float scale = 2.75f;
+    bool skip_welcome = false;
     std::string script_path;
     for (int i = 1; i < argc; ++i) {
         const std::string arg = argv[i];
         if (arg == "--size" && i + 1 < argc) {
             std::sscanf(argv[++i], "%dx%d", &gl.width, &gl.height);
+        } else if (arg == "--skip-welcome") {
+            skip_welcome = true;
         } else if (arg == "--scale" && i + 1 < argc) {
             scale = std::stof(argv[++i]);
         } else {
@@ -165,6 +170,11 @@ int main(int argc, char** argv)
     const char* home = std::getenv("HOME");
     const std::string data = home != nullptr ? home : ".";
     Slic3r::App::Android::initialize(std::getenv("PRUSASLICER_RESOURCES_DIR"), data + "/.config", data + "/.cache");
+
+    if (skip_welcome) {
+        // Pretend the first-run wizard was completed.
+        Slic3r::App::AppServices::instance().app_config().set("initialized", true);
+    }
 
     gl.init();
     HeadlessHost host;

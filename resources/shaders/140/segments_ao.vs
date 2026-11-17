@@ -115,7 +115,7 @@ void main()
     vec3 pos = endpoint_pos + horizontal_sign * horizontal_dir + vertical_sign * vertical_dir;
     if (local_vertex_index == 2 || local_vertex_index == 7) {
         float line_dir_sign = (local_vertex_index == 2) ? -1.0 : 1.0;
-        if (height_width_angle.z == 0) {
+        if (height_width_angle.z == 0.0) {
             // There I add a cap to lines that do not have a following line
             // (or they have one, but perfectly aligned, so the cap is hidden inside the next line).
             pos += line_dir_sign * line_dir * half_width;

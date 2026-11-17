@@ -134,7 +134,7 @@ float shadow_pcf(vec4 position, float NdotL)
 
     // PCF
     float shadow = 0.0;
-    vec2 texel_size = 1.0 / textureSize(shadowsmap, 0);
+    vec2 texel_size = 1.0 / vec2(textureSize(shadowsmap, 0));
     for (int x = -1; x <= 1; ++x) {
         for (int y = -1; y <= 1; ++y) {
             float pcf_depth = texture(shadowsmap, proj_coords.xy + vec2(x, y) * texel_size).r;
@@ -270,7 +270,7 @@ void main()
         discard;
 
     vec3 eye_normal = octahedral_normal_decoding(texture(g_eye_normal, tex_coord).xy);
-    int material_id = int(color.w * MAX_MATERIALS + 0.5);
+    int material_id = int(color.w * float(MAX_MATERIALS) + 0.5);
 
     vec3 world_position = world_position_from_depth(tex_coord, depth);
     vec3 eye_position = (view_matrix * vec4(world_position, 1.0)).xyz;

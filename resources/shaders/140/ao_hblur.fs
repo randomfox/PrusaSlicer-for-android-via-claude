@@ -15,5 +15,5 @@ void main()
     for (int x = -half_filter_size; x < -half_filter_size + filter_size; ++x) {
         result += texture(in_tex, tex_coord + vec2(float(x), 0.0) * texel_size).r;
     }
-    out_color = result / filter_size;
+    out_color = result / float(filter_size);
 }

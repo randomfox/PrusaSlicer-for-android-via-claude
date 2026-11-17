@@ -288,7 +288,7 @@ void MobileApp::finish_init()
 
     m_project_interactor->user_account_interactor().init(app_services.app_config().is_prusa_account_enabled());
 
-    m_prusalink_storage_listener = std::make_unique<PrusaLinkStorageListener>(*m_project_interactor);
+    m_prusalink_storage_listener = std::make_unique<PrintHost::PrusaLinkStorageListener>(*m_project_interactor);
     platform_services.job_manager().add_listener<Biz::Platform::JobManager::IJobManagerStatusChangedListener>(
         m_prusalink_storage_listener.get()
     );

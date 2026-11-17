@@ -17,7 +17,9 @@ class ProjectInteractor;
 namespace Slic3r::App {
 class LoadingRenderModule;
 class ProjectSaver;
+namespace PrintHost {
 class PrusaLinkStorageListener;
+}
 class ThumbnailStore;
 class ThumbnailStoreUpdater;
 namespace Plater {
@@ -95,7 +97,7 @@ private:
     std::unique_ptr<LoadingRenderModule> m_loading_module;
     std::unique_ptr<Plater::PlaterRenderModule> m_plater_module;
     std::unique_ptr<Preview::PreviewRenderModule> m_preview_module;
-    std::unique_ptr<PrusaLinkStorageListener> m_prusalink_storage_listener;
+    std::unique_ptr<PrintHost::PrusaLinkStorageListener> m_prusalink_storage_listener;
     Biz::Preset::IO::BundlePaths m_bundle_paths;
     std::vector<std::string> m_files_to_open;
 };

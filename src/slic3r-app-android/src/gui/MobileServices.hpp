@@ -123,6 +123,8 @@ public:
     std::unique_ptr<const Domain::FontFile> open(const Domain::FontDescriptor& descriptor) override;
     Descriptor get_current_descriptor(const Domain::FontDescriptor& other_descriptor) override;
     Domain::FontDescriptor::Type get_current_type() const override { return Domain::FontDescriptor::Type::file_path; }
+    /// Default text styles (the desktop uses the system GUI fonts). Must not be empty.
+    Domain::FontList create_favorit() override;
 
 private:
     Domain::FontList m_fonts;

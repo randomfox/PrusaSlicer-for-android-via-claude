@@ -89,6 +89,10 @@ target_include_directories(
 target_link_libraries(
         imgui_backend_ogl3 PUBLIC PlatformGL
 )
+if (SLIC3R_MOBILE)
+    # Use the GLES 3 headers directly instead of the desktop GL loader (dlopen of libGL).
+    target_compile_definitions(imgui_backend_ogl3 PUBLIC IMGUI_IMPL_OPENGL_ES3)
+endif ()
 
 if (APPLE)
     target_link_libraries(imgui_backend_ogl3 PUBLIC "-framework Cocoa" "-framework IOKit")

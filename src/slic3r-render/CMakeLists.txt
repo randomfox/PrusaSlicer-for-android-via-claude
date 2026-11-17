@@ -101,7 +101,10 @@ else()
 endif ()
 target_include_directories(slic3r-render PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
-if (SLIC3R_OPENGL_ES)
+# SLIC3R_OPENGL_ES selects the OpenGL ES 2 / WebGL level code paths (Emscripten). The mobile
+# build requires OpenGL ES 3.2, which is close enough to desktop OpenGL 3.x core to use the
+# desktop code paths and shaders (translated to GLSL ES at load time, see Shader_gl.cpp).
+if (SLIC3R_OPENGL_ES AND NOT SLIC3R_MOBILE)
     target_compile_definitions(slic3r-render PUBLIC SLIC3R_OPENGL_ES=1)
 endif ()
 

@@ -35,6 +35,16 @@ const char* shader_input_name(VertexAttribType vat)
 
 GLenum texture_internal_format(PixelFormat format)
 {
+#ifdef SLIC3R_MOBILE
+    // OpenGL ES requires sized internal formats for render targets, and a depth format that
+    // matches the GL_FLOAT upload type used for depth textures.
+    switch (format) {
+    case PixelFormat::RGB8:           return GL_RGB8;
+    case PixelFormat::RGBA8:          return GL_RGBA8;
+    case PixelFormat::DepthComponent: return GL_DEPTH_COMPONENT32F;
+    default: break;
+    }
+#endif // SLIC3R_MOBILE
     switch (format) {
     case PixelFormat::RGB8:           return GL_RGB;
     case PixelFormat::RGBA8:          return GL_RGBA;

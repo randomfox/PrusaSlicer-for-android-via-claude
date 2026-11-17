@@ -310,6 +310,36 @@ std::unique_ptr<const Domain::FontFile> MobileFontManager::open(const Domain::Fo
     return Biz::Emboss::create_font_file(path.string().c_str());
 }
 
+Domain::FontList MobileFontManager::create_favorit()
+{
+    // Mirrors the desktop favorites (NORMAL, SMALL, ITALIC, SWISS, MODERN) with fonts that are
+    // always available on mobile: the ones bundled with PrusaSlicer.
+    const fs::path fonts_dir = fs::path(Slic3r::resources_dir()) / "fonts";
+    const std::pair<const char*, const char*> favorites[] = {
+        {"NORMAL", "NotoSans-Regular.ttf"},
+        {"SMALL", "Inter-Regular.ttf"},
+        {"ITALIC", "NotoSans-Italic.ttf"},
+        {"SWISS", "Inter-Bold.ttf"},
+        {"MODERN", "NotoSans-Bold.ttf"},
+    };
+    Domain::FontList result;
+    for (const auto& [name, file] : favorites) {
+        const fs::path path = fonts_dir / file;
+        boost::system::error_code ec;
+        if (fs::exists(path, ec)) {
+            result.push_back(Domain::FontDescriptor{.name = name, .path = path.string(), .type = Domain::FontDescriptor::Type::file_path});
+        }
+    }
+    if (result.empty() && !m_fonts.empty()) {
+        result.push_back(m_fonts.front());
+    }
+    if (result.empty()) {
+        // Callers take the first favorite unconditionally.
+        result.push_back(Domain::FontDescriptor{.name = "NORMAL", .path = {}, .type = Domain::FontDescriptor::Type::file_path});
+    }
+    return result;
+}
+
 MobileFontManager::Descriptor MobileFontManager::get_current_descriptor(const Domain::FontDescriptor& other_descriptor)
 {
     if (other_descriptor.type == Domain::FontDescriptor::Type::file_path) {

@@ -29,7 +29,7 @@ void main()
     // get input for SSAO algorithm
     vec3 eye_position = eye_position_from_depth(tex_coord, texture(g_depth, tex_coord).r);
     vec3 eye_normal = normalize(texture(g_eye_normal, tex_coord).xyz);
-    vec2 tex_noise_size = textureSize(tex_noise, 0);
+    vec2 tex_noise_size = vec2(textureSize(tex_noise, 0));
     vec2 noise_scale = viewport_size / tex_noise_size; 
     vec3 random = normalize(texture(tex_noise, tex_coord * noise_scale).xyz);
 
@@ -58,5 +58,5 @@ void main()
         occlusion += (sample_eye_position.z >= sample_ref_pos.z + bias ? 1.0 : 0.0) * range_check;           
     }
 
-    out_color = pow(1.0 - (occlusion / kernel_size), intensity);
+    out_color = pow(1.0 - (occlusion / float(kernel_size)), intensity);
 }

@@ -1,5 +1,4 @@
 #include "Slic3r/App/Render/Context.hpp"
-#include <boost/algorithm/string/predicate.hpp>
 
 #include "Slic3r/App/Render/GL/commonGL.hpp"
 #include "Slic3r/App/Render/Device.hpp"
@@ -13,6 +12,7 @@
 #include <Slic3r/Log.hpp>
 
 #include <boost/algorithm/string/split.hpp>
+#include <cctype>
 #include <boost/algorithm/string/classification.hpp>
 
 #include <sstream>
@@ -46,19 +46,18 @@ Semver parse_version(const std::string& s)
     if (tokens.empty())
         return Semver::invalid();
 
-#if SLIC3R_OPENGL_ES
-    const std::string version_container = (tokens.size() > 1 && boost::istarts_with(tokens[1], "ES")
-                                          ) ?
-        tokens[2] :
-        tokens[0];
-#endif // SLIC3R_OPENGL_ES
+    // The version is the first token starting with a digit: "4.6.0 NVIDIA 535.54",
+    // "OpenGL ES 3.2 Mesa 25.2", "OpenGL ES GLSL ES 3.20".
+    std::string version_container = tokens[0];
+    for (const std::string& token : tokens) {
+        if (!token.empty() && std::isdigit(static_cast<unsigned char>(token[0]))) {
+            version_container = token;
+            break;
+        }
+    }
 
     std::vector<std::string> numbers;
-#if SLIC3R_OPENGL_ES
     boost::split(numbers, version_container, boost::is_any_of("."), boost::token_compress_on);
-#else
-    boost::split(numbers, tokens[0], boost::is_any_of("."), boost::token_compress_on);
-#endif // SLIC3R_OPENGL_ES
 
     unsigned int gl_major = 0;
     unsigned int gl_minor = 0;
