@@ -4,10 +4,8 @@
 #include "Slic3r/Biz/Config/Legacy/PrintConfig.hpp"
 #include "Slic3r/Biz/I18N/I18N.hpp"
 #include "Slic3r/Biz/libpgcode/Processor.hpp"
-#include "Slic3r/Domain/FullConfigFDM.hpp"
 #include "Slic3r/Log.hpp"
-#include "libslic3r/ConfigViews.hpp"
-#include "libslic3r/GCode.hpp"
+#include "libslic3r/GCodeProcessorConfig.hpp"
 
 #include <LibBGCode/convert/convert.hpp>
 
@@ -128,11 +126,7 @@ tl::expected<Slicing::FDMResult, std::string> load_gcode_file(const boost::files
         if (fdm == nullptr) {
             return tl::make_unexpected(_u8L("Only FDM G-code can be previewed."));
         }
-        const Domain::Preset::HwPrinterConfig hw = hw_config_for(nozzle_diameters);
-        std::vector<unsigned> extruders(hw.tools.size());
-        std::iota(extruders.begin(), extruders.end(), 0u);
-        auto full_config = std::make_shared<const Domain::FullConfigFDM>(*fdm, extruders, hw);
-        processor_config = GCode::processor_config(PrintConfigView{full_config}, hw);
+        processor_config = Biz::Slicing::gcode_processor_config(*fdm, hw_config_for(nozzle_diameters));
     } catch (const std::exception& e) {
         SPDLOG_WARN("G-code viewer: using default settings for {}: {}", path.string(), e.what());
         processor_config = Biz::libpgcode::ProcessorConfig{};

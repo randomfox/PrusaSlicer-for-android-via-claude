@@ -497,13 +497,14 @@ void PreviewRenderModule::on_init(
             {MenuItemName::JumpToValue},
             std::make_unique<UIItemCommand>(
                 "slider-layers-jump-to_value",
-                [this]() { m_viewer->slider_layers_jump_to_value(); },
+                [this]() { if (m_viewer) m_viewer->slider_layers_jump_to_value(); },
                 UIItemCommandExtraOpts{
                     .keyboard_shortcuts = Platform::KeyboardShortcuts{Platform::KeyboardShortcut{
                         Platform::KeyModifiers(Platform::KeyModifier::Shift),
                         Platform::KeyCode::G
                     }},
-                    .enabled           = [this]() { return m_viewer->has_data(); }
+                    // (m_viewer is set when the preview is shown for the first time.)
+                    .enabled           = [this]() { return m_viewer != nullptr && m_viewer->has_data(); }
                 }
             )
         );

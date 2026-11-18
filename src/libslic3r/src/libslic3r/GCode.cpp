@@ -5,6 +5,10 @@
 #include "libslic3r/GCode/ExtrusionProcessor.hpp"
 #include "libslic3r/I18N_private.hpp"
 #include "libslic3r/GCode.hpp"
+#include "libslic3r/GCodeProcessorConfig.hpp"
+#include "Slic3r/Domain/FullConfigFDM.hpp"
+
+#include <numeric>
 #include "Slic3r/Exception.hpp"
 #include "libslic3r/ExtrusionEntity.hpp"
 #include "libslic3r/Geometry/ConvexHull.hpp"
@@ -671,6 +675,23 @@ Biz::libpgcode::ProcessorConfig processor_config(const PrintConfigView& config, 
     return DoExport::populate_processor_config(config, hw_printer_config);
 }
 } // namespace GCode
+
+} // namespace Slic3r
+
+namespace Slic3r::Biz::Slicing {
+libpgcode::ProcessorConfig gcode_processor_config(
+    const Domain::ConfigPackFDM& config,
+    const Domain::Preset::HwPrinterConfig& hw_printer_config
+)
+{
+    std::vector<unsigned> extruders(hw_printer_config.tools.size());
+    std::iota(extruders.begin(), extruders.end(), 0u);
+    const auto full_config = std::make_shared<const Domain::FullConfigFDM>(config, extruders, hw_printer_config);
+    return GCode::processor_config(PrintConfigView{full_config}, hw_printer_config);
+}
+} // namespace Slic3r::Biz::Slicing
+
+namespace Slic3r {
 
 GCodeGenerator::GCodeGenerator(const Print* print) :
     m_origin(Vec2d::Zero()),
