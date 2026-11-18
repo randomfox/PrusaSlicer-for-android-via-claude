@@ -40,6 +40,8 @@
 #include "Slic3r/Biz/Format/3mf.hpp"
 #include "Slic3r/Biz/Algorithms/Point.hpp"
 #include "Slic3r/Biz/FileLoadingLogic.hpp"
+
+#include <boost/filesystem/operations.hpp>
 #include "Slic3r/Biz/MeshExportLogic.hpp"
 #include "Slic3r/Biz/VolumeReloadLogic.hpp"
 #include "Slic3r/Biz/Algorithms/BoundingBox.hpp"
@@ -430,10 +432,9 @@ void MenuCommandRegistrar::register_bed_menu_add_shape_commands()
             "add-object-shape-gallery",
             [this]()
             {
+                // The undo snapshot is taken inside load_models_to_project().
                 load_shape_from_gallery();
-                m_project_interactor.undo_provider().take_snapshot(UndoSnapshotType::AddObject);
-            },
-            UIItemCommandExtraOpts{.todo = true}
+            }
         );
 }
 
@@ -809,12 +810,13 @@ void MenuCommandRegistrar::register_object_menu_add_volume_commands()
             "add-volume-shape-from-gallery-solid",
             [this]()
             {
-                load_shape_from_gallery(VolumeType::MODEL_PART);
-                m_project_interactor.undo_provider().take_snapshot(
-                    UndoSnapshotType::AddVolumeGallery
-                );
+                load_shape_from_gallery(VolumeType::MODEL_PART, [this]() {
+                    m_project_interactor.undo_provider().take_snapshot(UndoSnapshotType::AddVolumeGallery);
+                });
             },
-            UIItemCommandExtraOpts{.todo = true}
+            UIItemCommandExtraOpts{
+                .enabled = [this]() { return m_project_interactor.scene_interactor().object_selection().only_single_object(); }
+            }
         )
         .pop_path_level()
         .push_path_level(MenuItemName::NegativeVolume)
@@ -892,12 +894,13 @@ void MenuCommandRegistrar::register_object_menu_add_volume_commands()
             "add-volume-shape-from-gallery-negative",
             [this]()
             {
-                load_shape_from_gallery(VolumeType::NEGATIVE_VOLUME);
-                m_project_interactor.undo_provider().take_snapshot(
-                    UndoSnapshotType::AddNegativeVolumeGallery
-                );
+                load_shape_from_gallery(VolumeType::NEGATIVE_VOLUME, [this]() {
+                    m_project_interactor.undo_provider().take_snapshot(UndoSnapshotType::AddNegativeVolumeGallery);
+                });
             },
-            UIItemCommandExtraOpts{.todo = true}
+            UIItemCommandExtraOpts{
+                .enabled = [this]() { return m_project_interactor.scene_interactor().object_selection().only_single_object(); }
+            }
         )
         .pop_path_level()
         .push_path_level(MenuItemName::ModifierVolume)
@@ -975,12 +978,13 @@ void MenuCommandRegistrar::register_object_menu_add_volume_commands()
             "add-volume-shape-from-gallery-modifier",
             [this]()
             {
-                load_shape_from_gallery(VolumeType::PARAMETER_MODIFIER);
-                m_project_interactor.undo_provider().take_snapshot(
-                    UndoSnapshotType::AddModifierGallery
-                );
+                load_shape_from_gallery(VolumeType::PARAMETER_MODIFIER, [this]() {
+                    m_project_interactor.undo_provider().take_snapshot(UndoSnapshotType::AddModifierGallery);
+                });
             },
-            UIItemCommandExtraOpts{.todo = true}
+            UIItemCommandExtraOpts{
+                .enabled = [this]() { return m_project_interactor.scene_interactor().object_selection().only_single_object(); }
+            }
         )
         .pop_path_level()
         .push_path_level(MenuItemName::SupportBlocker)
@@ -1035,12 +1039,13 @@ void MenuCommandRegistrar::register_object_menu_add_volume_commands()
             "add-volume-shape-from-gallery-support-blocker",
             [this]()
             {
-                load_shape_from_gallery(VolumeType::SUPPORT_BLOCKER);
-                m_project_interactor.undo_provider().take_snapshot(
-                    UndoSnapshotType::AddSupportBlockerGallery
-                );
+                load_shape_from_gallery(VolumeType::SUPPORT_BLOCKER, [this]() {
+                    m_project_interactor.undo_provider().take_snapshot(UndoSnapshotType::AddSupportBlockerGallery);
+                });
             },
-            UIItemCommandExtraOpts{.todo = true}
+            UIItemCommandExtraOpts{
+                .enabled = [this]() { return m_project_interactor.scene_interactor().object_selection().only_single_object(); }
+            }
         )
         .pop_path_level()
         .push_path_level(MenuItemName::SupportModifier)
@@ -1095,12 +1100,13 @@ void MenuCommandRegistrar::register_object_menu_add_volume_commands()
             "add-volume-shape-from-gallery-support-modifier",
             [this]()
             {
-                load_shape_from_gallery(VolumeType::SUPPORT_ENFORCER);
-                m_project_interactor.undo_provider().take_snapshot(
-                    UndoSnapshotType::AddSupportModifierGallery
-                );
+                load_shape_from_gallery(VolumeType::SUPPORT_ENFORCER, [this]() {
+                    m_project_interactor.undo_provider().take_snapshot(UndoSnapshotType::AddSupportModifierGallery);
+                });
             },
-            UIItemCommandExtraOpts{.todo = true}
+            UIItemCommandExtraOpts{
+                .enabled = [this]() { return m_project_interactor.scene_interactor().object_selection().only_single_object(); }
+            }
         );
 }
 
@@ -1420,7 +1426,124 @@ MenuCommandRegistrar::load_volume(Domain::ModelVolumeType type, Wildcards::TypeF
     );
 }
 
-void MenuCommandRegistrar::load_shape_from_gallery(Domain::ModelVolumeType type) {}
+namespace {
+boost::filesystem::path user_shapes_dir() { return boost::filesystem::path(Slic3r::data_dir()) / "shapes"; }
+
+bool is_gallery_shape(const boost::filesystem::path& path)
+{
+    std::string ext = path.extension().string();
+    std::transform(ext.begin(), ext.end(), ext.begin(), [](unsigned char c) { return std::tolower(c); });
+    return ext == ".stl" || ext == ".obj" || ext == ".3mf" || ext == ".step" || ext == ".stp";
+}
+
+std::vector<boost::filesystem::path> gallery_shapes()
+{
+    std::vector<boost::filesystem::path> shapes;
+    for (const boost::filesystem::path& dir :
+         {boost::filesystem::path(Slic3r::resources_dir()) / "shapes", user_shapes_dir()}) {
+        boost::system::error_code ec;
+        std::vector<boost::filesystem::path> in_dir;
+        for (boost::filesystem::directory_iterator it(dir, ec), end; !ec && it != end; it.increment(ec)) {
+            if (boost::filesystem::is_regular_file(it->path(), ec) && is_gallery_shape(it->path())) {
+                in_dir.push_back(it->path());
+            }
+        }
+        std::sort(in_dir.begin(), in_dir.end());
+        shapes.insert(shapes.end(), in_dir.begin(), in_dir.end());
+    }
+    return shapes;
+}
+} // namespace
+
+void MenuCommandRegistrar::add_gallery_shape(
+    const boost::filesystem::path& path, std::optional<Domain::ModelVolumeType> type
+)
+{
+    if (type) {
+        Biz::FileLoadingLogic::import_volumes_into_selected_object(
+            {path}, *type, m_project_interactor.scene_interactor(), &AppServices::instance().dialog_manager()
+        );
+    } else {
+        m_project_interactor.load_models_to_project({path}, false);
+    }
+}
+
+void MenuCommandRegistrar::load_shape_from_gallery(std::optional<Domain::ModelVolumeType> type, std::function<void()> on_loaded)
+{
+    IDialogManager& dialogs = AppServices::instance().dialog_manager();
+    const std::vector<boost::filesystem::path> shapes = gallery_shapes();
+    const std::string add_new = _u8L("Add shape from file") + "...";
+    std::vector<std::string> names{add_new};
+    for (const boost::filesystem::path& shape : shapes) {
+        names.push_back(shape.stem().string());
+    }
+    const std::string chosen = dialogs.show_combo_dialog(
+        _u8L("Shape Gallery"),
+        shapes.empty() ? _u8L("The gallery is empty. Add a shape (STL, OBJ, 3MF or STEP) to it:") :
+                         _u8L("Choose a shape:"),
+        names
+    );
+    if (chosen.empty()) {
+        return;
+    }
+    if (chosen != add_new) {
+        for (const boost::filesystem::path& shape : shapes) {
+            if (shape.stem().string() == chosen) {
+                add_gallery_shape(shape, type);
+                if (on_loaded) {
+                    on_loaded();
+                }
+                return;
+            }
+        }
+        return;
+    }
+    // Copy the chosen files into the user's gallery and add the first one.
+    IDialogManager::FileCallback callback =
+        [this, type, on_loaded](bool success, const std::vector<boost::filesystem::path>& file_paths)
+    {
+        if (!success || file_paths.empty()) {
+            return;
+        }
+        boost::system::error_code ec;
+        boost::filesystem::create_directories(user_shapes_dir(), ec);
+        std::optional<boost::filesystem::path> first;
+        for (const boost::filesystem::path& source : file_paths) {
+            if (!is_gallery_shape(source)) {
+                continue;
+            }
+            const boost::filesystem::path target = user_shapes_dir() / source.filename();
+            boost::filesystem::copy_file(source, target, boost::filesystem::copy_options::overwrite_existing, ec);
+            if (ec) {
+                AppServices::instance().dialog_manager().show_error_dialog(
+                    fmt::format("{}\n{}", _u8L("Failed to add the shape to the gallery."), ec.message()),
+                    _u8L("Shape Gallery")
+                );
+                return;
+            }
+            if (!first) {
+                first = target;
+            }
+        }
+        if (first) {
+            add_gallery_shape(*first, type);
+            if (on_loaded) {
+                on_loaded();
+            }
+        }
+    };
+    dialogs.show_file_dialog(
+        FileDialogType::OpenMultiple,
+        _u8L("Add shape to the gallery"),
+        this->default_dialog_folder(),
+        "",
+        Wildcards::generate_wildcards(
+            Wildcards::TypeFlag::Stl | Wildcards::TypeFlag::Obj | Wildcards::TypeFlag::Project3mf | Wildcards::TypeFlag::Step,
+            Wildcards::TypeFlag::Stl
+        ),
+        callback
+    );
+}
 
 void MenuCommandRegistrar::show_about()
 {

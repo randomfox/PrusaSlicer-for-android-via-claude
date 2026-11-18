@@ -30,7 +30,7 @@ Status: ✅ done in this branch · ⏳ in progress · ☐ open
 | ☐ | Tool changes / extruder sequence on the layer slider (multi-tool) | disabled upstream on purpose (`ysFIXME-spe3494`, an internal Prusa ticket); slicing still supports the modes |
 | ☐ | Auto color change | stub |
 | ✅ | Object info (size, volume, facets, mesh errors) | object context menu > Object info |
-| ☐ | Shape gallery | MCR `.todo` items, `resources/shapes` missing |
+| ✅ | Shape gallery | as object or part/modifier/negative/blocker/enforcer; shapes from `resources/shapes` (not shipped: the 2.x shape files are not in this repo) and the user folder `<data dir>/shapes`, filled by "Add shape from file" |
 | ☐ | Import / export config (.ini), load config from G-code | YAML presets only |
 | ☐ | Custom G-code editor with placeholder list | plain text fields |
 | ☐ | Optimize orientation | algorithm not ported |

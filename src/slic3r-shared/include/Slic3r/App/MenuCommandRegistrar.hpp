@@ -4,6 +4,8 @@
 #include "Slic3r/App/Wildcards.hpp"
 
 #include <boost/filesystem/path.hpp>
+#include <functional>
+#include <optional>
 #include <string>
 
 namespace Slic3r::App::Platform {
@@ -94,9 +96,13 @@ private:
         Wildcards::TypeFlag specific_type = Wildcards::TypeFlag::None
     );
 
+    /// Shape gallery (2.x): a shape from resources/shapes or <data dir>/shapes, as a new object
+    /// (no type) or as a volume of the selected object. `on_loaded` runs after the shape was added.
     void load_shape_from_gallery(
-        Domain::ModelVolumeType type = Domain::ModelVolumeType::MODEL_PART
+        std::optional<Domain::ModelVolumeType> type = std::nullopt,
+        std::function<void()> on_loaded = {}
     );
+    void add_gallery_shape(const boost::filesystem::path& path, std::optional<Domain::ModelVolumeType> type);
 
     void export_selection_as_stl_obj();
     /// 2.x "Scale to print volume": uniform scale so the selection fits the bed and the
