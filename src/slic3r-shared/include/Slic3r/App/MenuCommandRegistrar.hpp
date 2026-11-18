@@ -99,6 +99,14 @@ private:
     );
 
     void export_selection_as_stl_obj();
+    /// 2.x "Scale to print volume": uniform scale so the selection fits the bed and the
+    /// maximum print height, centered on the bed.
+    void scale_selection_to_print_volume();
+    /// Mirrors the selection along the world axis (0 = X, 1 = Y, 2 = Z) around its center.
+    void mirror_selection(int axis);
+    void show_about();
+    void show_system_info();
+    void show_keyboard_shortcuts();
 
     void replace_selected_volume_with_stl();
 

@@ -552,9 +552,9 @@ const std::map<std::string, std::vector<Step>> invalidated_by{
     {"bed_custom_model", all_steps()},
     {"bed_custom_texture", steps({})},
     {"bed_shape", steps({})},
-    {"bottle_cost", steps({})},
-    {"bottle_volume", steps({})},
-    {"bottle_weight", steps({})},
+    {"bottle_cost", steps({propagate(slapsMergeSlicesAndEval)})},
+    {"bottle_volume", steps({propagate(slapsMergeSlicesAndEval)})},
+    {"bottle_weight", steps({propagate(slapsMergeSlicesAndEval)})},
     {"branchingsupport_base_diameter", steps({propagate(slaposSupportTree)})},
     {"branchingsupport_base_height", steps({propagate(slaposSupportTree)})},
     {"branchingsupport_base_safety_distance", steps({propagate(slaposSupportTree)})},
@@ -600,7 +600,7 @@ const std::map<std::string, std::vector<Step>> invalidated_by{
     {"material_correction_x", all_steps()},
     {"material_correction_y", all_steps()},
     {"material_correction_z", all_steps()},
-    {"material_density", steps({})},
+    {"material_density", steps({propagate(slapsMergeSlicesAndEval)})},
     {"material_notes", steps({})},
     {"material_print_speed", all_steps()},
     {"material_type", steps({})},
@@ -1060,83 +1060,39 @@ ParserConfig create_stats_placeholders()
 
 std::string SLAPrint::validate(std::vector<std::string>*) const
 {
-//    for(SLAPrintObject * po : m_objects) {
-//
-//        const ModelObject *mo = po->model_object();
-//        bool supports_en = po->config().supports_enable.getBool();
-//
-//        if(supports_en &&
-//           mo->sla_points_status == PointsStatus::UserModified &&
-//           mo->sla_support_points.empty())
-//            return _u8L("Cannot proceed without support points! "
-//                     "Add support points or disable support generation.");
-//
-//        sla::SupportTreeConfig cfg = make_support_cfg(po->config());
-//
-//        double elv = cfg.object_elevation_mm;
-//        
-//        sla::PadConfig padcfg = make_pad_cfg(po->config());
-//        sla::PadConfig::EmbedObject &builtinpad = padcfg.embed_object;
-//        
-//        if(supports_en && !builtinpad.enabled && elv < cfg.head_fullwidth())
-//            return _u8L(
-//                "Elevation is too low for object. Use the \"Pad around "
-//                "object\" feature to print the object without elevation.");
-//        
-//        if(supports_en && builtinpad.enabled &&
-//           cfg.pillar_base_safety_distance_mm < builtinpad.object_gap_mm) {
-//            return _u8L(
-//                "The endings of the support pillars will be deployed on the "
-//                "gap between the object and the pad. 'Support base safety "
-//                "distance' has to be greater than the 'Pad object gap' "
-//                "parameter to avoid this.");
-//        }
-//        
-//        std::string pval = padcfg.validate();
-//        if (!pval.empty()) return pval;
-//    }
-//
-//    double expt_max = m_printer_config.max_exposure_time.getFloat();
-//    double expt_min = m_printer_config.min_exposure_time.getFloat();
-//    double expt_cur = m_material_config.exposure_time.getFloat();
-//
-//    if (expt_cur < expt_min || expt_cur > expt_max)
-//        return _u8L("Exposition time is out of printer profile bounds.");
-//
-//    double iexpt_max = m_printer_config.max_initial_exposure_time.getFloat();
-//    double iexpt_min = m_printer_config.min_initial_exposure_time.getFloat();
-//    double iexpt_cur = m_material_config.initial_exposure_time.getFloat();
-//
-//    if (iexpt_cur < iexpt_min || iexpt_cur > iexpt_max)
-//        return _u8L("Initial exposition time is out of printer profile bounds.");
-//
-//    for (const std::string& prefix : { "", "branching" }) {
-//
-//        double head_penetration = m_full_print_config.opt_float(prefix + "support_head_penetration");
-//        double head_width       = m_full_print_config.opt_float(prefix + "support_head_width");
-//
-//        if (head_penetration > head_width) {
-//            return _u8L("Invalid Head penetration\n"
-//                        "Head penetration should not be greater than the Head width.\n"
-//                        "Please check value of Head penetration in Print Settings or Material Overrides.");
-//        }
-//
-//        double pinhead_d = m_full_print_config.opt_float(prefix + "support_head_front_diameter");
-//        double pillar_d  = m_full_print_config.opt_float(prefix + "support_pillar_diameter");
-//
-//        if (pinhead_d > pillar_d) {
-//            return _u8L("Invalid pinhead diameter\n"
-//                        "Pinhead front diameter should be smaller than the Pillar diameter.\n"
-//                        "Please check value of Pinhead front diameter in Print Settings or Material Overrides.");
-//        }
-//    }
-//
-//    if ((!m_material_config.use_tilt.get_at(0) && is_approx(m_material_config.tower_hop_height.get_at(0), 0.))
-//        || (!m_material_config.use_tilt.get_at(1) && is_approx(m_material_config.tower_hop_height.get_at(1), 0.)))
-//        return _u8L("Disabling the 'Use tilt' function causes the object to separate away from the film in the "
-//                    "vertical direction only. Therefore, it is necessary to set the 'Tower hop height' parameter "
-//                    "to reasonable value. The recommended value is 5 mm.");
-//
+    // Checks of PrusaSlicer 2.x that still apply to the 3.x settings.
+    const SLAPrintConfigView& config = print_config();
+
+    const double expt_cur = config.get<double>("exposure_time");
+    if (expt_cur < config.get<double>("min_exposure_time") || expt_cur > config.get<double>("max_exposure_time"))
+        return _u8L("Exposition time is out of printer profile bounds.");
+
+    const double iexpt_cur = config.get<double>("initial_exposure_time");
+    if (iexpt_cur < config.get<double>("min_initial_exposure_time") || iexpt_cur > config.get<double>("max_initial_exposure_time"))
+        return _u8L("Initial exposition time is out of printer profile bounds.");
+
+    for (const SLAPrintObject* po : m_objects) {
+        const auto& object_config = po->config();
+        for (const std::string prefix : {"", "branching"}) {
+            if (object_config.get<double>(prefix + "support_head_penetration") > object_config.get<double>(prefix + "support_head_width"))
+                return _u8L("Invalid Head penetration\n"
+                            "Head penetration should not be greater than the Head width.\n"
+                            "Please check value of Head penetration in Print Settings or Material Overrides.");
+            if (object_config.get<double>(prefix + "support_head_front_diameter") > object_config.get<double>(prefix + "support_pillar_diameter"))
+                return _u8L("Invalid pinhead diameter\n"
+                            "Pinhead front diameter should be smaller than the Pillar diameter.\n"
+                            "Please check value of Pinhead front diameter in Print Settings or Material Overrides.");
+        }
+    }
+
+    const auto use_tilt         = config.get<std::vector<bool>>("use_tilt");
+    const auto tower_hop_height = config.get<std::vector<double>>("tower_hop_height");
+    for (size_t i = 0; i < std::min(use_tilt.size(), tower_hop_height.size()); ++i) {
+        if (!use_tilt[i] && is_approx(tower_hop_height[i], 0.))
+            return _u8L("Disabling the 'Use tilt' function causes the object to separate away from the film in the "
+                        "vertical direction only. Therefore, it is necessary to set the 'Tower hop height' parameter "
+                        "to reasonable value. The recommended value is 5 mm.");
+    }
     return "";
 }
 

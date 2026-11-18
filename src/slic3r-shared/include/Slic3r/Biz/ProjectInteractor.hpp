@@ -695,6 +695,10 @@ public:
     {
         return m_physical_printer_interactor;
     }
+    const PhysicalPrinter::PhysicalPrinterInteractor& physical_printer_interactor() const
+    {
+        return m_physical_printer_interactor;
+    }
 
     ExportDestination::ExportDestinationInteractor& export_destination_interactor()
     {

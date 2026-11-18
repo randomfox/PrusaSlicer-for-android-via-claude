@@ -103,6 +103,20 @@ bool MobileApp::render_frame()
     return more;
 }
 
+bool MobileApp::execute_command(const std::string& name)
+{
+    if (!m_plater_module) {
+        return false;
+    }
+    const auto& commands = m_plater_module->commands();
+    const auto it        = commands.find(name);
+    if (it == commands.end() || !it->second || !it->second->enabled()) {
+        return false;
+    }
+    it->second->execute();
+    return true;
+}
+
 void MobileApp::on_question_answered(int request_id, int button_index)
 {
     if (m_dialog_manager != nullptr) {

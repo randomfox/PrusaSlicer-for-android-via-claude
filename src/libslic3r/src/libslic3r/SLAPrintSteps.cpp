@@ -1534,6 +1534,14 @@ void SLAPrint::Steps::merge_slices_and_eval_stats() {
 
     auto& print_statistics = m_print->m_print_statistics;
     print_statistics = create_stats(layers_info, is_prusa_print);
+    {
+        // Material cost and weight (PrusaSlicer 2.x): used resin [ml] times price / weight per ml.
+        const double used_ml       = (print_statistics.objects_used_material + print_statistics.support_used_material) / 1000.;
+        const double bottle_volume = config.get<double>("bottle_volume");
+        if (bottle_volume > 0.)
+            print_statistics.total_cost = used_ml * config.get<double>("bottle_cost") / bottle_volume;
+        print_statistics.total_weight = used_ml * config.get<double>("material_density");
+    }
     if (printer_input.empty()) // set as invalid
         print_statistics.estimated_print_time = NaNd;
     int count_faded_layers = config.get<int>("faded_layers");

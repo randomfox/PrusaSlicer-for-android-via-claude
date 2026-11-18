@@ -77,6 +77,11 @@ Flow PrintRegion::flow(const PrintObject &object, FlowRole role, double layer_he
     if (config_width.is_zero())
         config_width = object.config().get<std::vector<Domain::FloatOrPercentage>>("extrusion_width").at(extruder_id);
 
+    // "Automatic extrusion widths calculation": widths follow the nozzle diameter of the
+    // extruder used (2.x computed them in the GUI), the configured ones are ignored.
+    if (print_config.get<bool>("automatic_extrusion_widths"))
+        config_width = Domain::FloatOrPercentage{};
+
     // Get the configured nozzle_diameter for the extruder associated to the flow role requested.
     // Here this->extruder(role) is > 0.
     auto nozzle_diameter = float(Biz::Slicing::get_nozzle_diameter(print_config.hw_config(), extruder_id));

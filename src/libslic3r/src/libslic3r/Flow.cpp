@@ -167,6 +167,14 @@ static unsigned get_support_extruder_id(const PrintObject& object, bool is_inter
     return min_nozzle_extruder_id;
 }
 
+namespace {
+// "Automatic extrusion widths calculation": the width follows the nozzle diameter.
+bool automatic_widths(const PrintObject* object)
+{
+    return object->print()->config().get<bool>("automatic_extrusion_widths");
+}
+} // namespace
+
 Flow support_material_flow(const PrintObject *object, float layer_height)
 {
     const PrintObjectConfigView &config{object->config()};
@@ -175,6 +183,8 @@ Flow support_material_flow(const PrintObject *object, float layer_height)
     const float nozzle_diameter{
         static_cast<float>(Biz::Slicing::get_nozzle_diameter(config.hw_config(), extruder))
     };
+    if (automatic_widths(object))
+        return Flow::new_from_config_width(frSupportMaterial, Domain::FloatOrPercentage{}, nozzle_diameter, (layer_height > 0.f) ? layer_height : float(object->config().get<double>("layer_height")));
     const float default_width{
         static_cast<float>(config.get<std::vector<Domain::FloatOrPercentage>>("extrusion_width")
                                .at(extruder)
@@ -202,6 +212,8 @@ Flow support_material_1st_layer_flow(const PrintObject *object, float layer_heig
     const float nozzle_diameter{
         static_cast<float>(Biz::Slicing::get_nozzle_diameter(config.hw_config(), extruder))
     };
+    if (automatic_widths(object))
+        return Flow::new_from_config_width(frSupportMaterial, Domain::FloatOrPercentage{}, nozzle_diameter, (layer_height > 0.f) ? layer_height : float(config.get<Domain::FloatOrPercentage>("first_layer_height").get_abs_value(object->config().get<double>("layer_height"))));
     const Domain::FloatOrPercentage first_layer_extrusion_width{
         config.get<std::vector<Domain::FloatOrPercentage>>("first_layer_extrusion_width")
             .at(extruder)
@@ -234,6 +246,8 @@ Flow support_material_interface_flow(const PrintObject *object, float layer_heig
     const float nozzle_diameter{
         static_cast<float>(Biz::Slicing::get_nozzle_diameter(config.hw_config(), extruder))
     };
+    if (automatic_widths(object))
+        return Flow::new_from_config_width(frSupportMaterialInterface, Domain::FloatOrPercentage{}, nozzle_diameter, (layer_height > 0.f) ? layer_height : float(object->config().get<double>("layer_height")));
     const float default_width{
         static_cast<float>(config.get<std::vector<Domain::FloatOrPercentage>>("extrusion_width")
                                .at(extruder)

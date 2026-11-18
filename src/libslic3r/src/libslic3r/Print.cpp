@@ -1302,6 +1302,8 @@ Flow Print::brim_flow() const
        extruders and take the one with, say, the smallest index.
        The same logic should be applied to the code that selects the extruder during G-code
        generation as well. */
+    if (m_config.get<bool>("automatic_extrusion_widths"))
+        width = Domain::FloatOrPercentage{};
     return Flow::new_from_config_width(
         frPerimeter,
 		width,
@@ -1333,6 +1335,8 @@ Flow Print::skirt_flow() const
                     .get<std::vector<Domain::FloatOrPercentage>>("extrusion_width")
                     .at(support_material_extruder_idx);
 
+    if (m_config.get<bool>("automatic_extrusion_widths"))
+        width = Domain::FloatOrPercentage{};
     return Flow::new_from_config_width(
         frPerimeter,
 		width,

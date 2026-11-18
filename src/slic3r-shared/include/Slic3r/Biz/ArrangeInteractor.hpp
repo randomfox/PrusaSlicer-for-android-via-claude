@@ -48,7 +48,10 @@ public:
         const Domain::ConstModelInstanceList& extra,
         const Arrange::Settings& settings,
         std::function<void()> on_finished,
-        const std::string& job_name = "arrange"
+        const std::string& job_name = "arrange",
+        // Called (before on_finished) with the instances that did not fit on the beds, when
+        // no beds may be added; they are then left where they are instead of being moved.
+        std::function<void(const Domain::ElementRefs& unpacked)> on_unpacked = nullptr
     );
 
     /**
@@ -66,6 +69,14 @@ public:
         const Domain::BedRef& target_bed,
         UndoSnapshotType snapshot_type
     );
+
+    /**
+     * @brief "Fill bed with instances": adds as many instances of the object as fit on the
+     *        target bed (next to everything already there) and arranges them; the copies that
+     *        do not fit are removed again. Takes an undo snapshot when finished.
+     * @note The object must be the current (instance mode) selection.
+     */
+    void fill_bed(Domain::SelectionId project_id, std::size_t object_id, const Domain::BedRef& target_bed);
 
     /**
      * @brief Calls @p fn once no arrange_added_instances() operation is pending, immediately if none is.

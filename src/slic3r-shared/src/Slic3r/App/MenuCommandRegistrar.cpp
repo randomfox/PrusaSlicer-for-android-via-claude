@@ -1,6 +1,15 @@
 #include "Slic3r/App/MenuCommandRegistrar.hpp"
 
 #include "Slic3r/Directories.hpp"
+#include "Slic3r/Platform.hpp"
+#include "Slic3r/Version.hpp"
+#include "Slic3r/App/Render/Context.hpp"
+
+#include <fmt/format.h>
+
+#include <algorithm>
+#include <cctype>
+#include <thread>
 #include "Slic3r/App/MenuManager.hpp"
 #include "Slic3r/App/UIItemCommand.hpp"
 #include "Slic3r/App/Platform/CommandName.hpp"
@@ -515,8 +524,25 @@ void MenuCommandRegistrar::register_object_menu_commands()
         .append_item(
             MenuItemName::FillBedWithInstances,
             "fill-bed-with-instances",
-            []() {},
-            UIItemCommandExtraOpts{.todo = true}
+            [this]()
+            {
+                const auto& selection = m_project_interactor.scene_interactor().object_selection();
+                if (!selection.only_single_object()) {
+                    return;
+                }
+                m_project_interactor.arrange_interactor().fill_bed(
+                    m_project_interactor.selected_project_id(),
+                    selection.elements.front().object_id,
+                    m_project_interactor.scene_interactor().bed_selection().last_selected_bed()
+                );
+            },
+            UIItemCommandExtraOpts{
+                .enabled = [this]()
+                {
+                    const auto& selection = m_project_interactor.scene_interactor().object_selection();
+                    return selection.only_single_object() && selection.mode == Biz::Scene::SelectionMode::Instance;
+                }
+            }
         )
         .append_separator()
         // we need to force a registration of added menu items before call extra function
@@ -604,9 +630,31 @@ void MenuCommandRegistrar::register_object_menu_commands()
         .append_item(
             MenuItemName::ScaleToPrintVolume,
             "scale-to-print-volume",
-            []() {},
-            UIItemCommandExtraOpts{.todo = true}
+            [this]() { scale_selection_to_print_volume(); },
+            UIItemCommandExtraOpts{
+                .enabled = [this]() { return !m_project_interactor.scene_interactor().object_selection().empty(); }
+            }
         )
+        .push_path_level(MenuItemName::MirrorObject)
+        .append_item(
+            MenuItemName::MirrorObjectX,
+            "mirror-x",
+            [this]() { mirror_selection(0); },
+            UIItemCommandExtraOpts{.enabled = [this]() { return !m_project_interactor.scene_interactor().object_selection().empty(); }}
+        )
+        .append_item(
+            MenuItemName::MirrorObjectY,
+            "mirror-y",
+            [this]() { mirror_selection(1); },
+            UIItemCommandExtraOpts{.enabled = [this]() { return !m_project_interactor.scene_interactor().object_selection().empty(); }}
+        )
+        .append_item(
+            MenuItemName::MirrorObjectZ,
+            "mirror-z",
+            [this]() { mirror_selection(2); },
+            UIItemCommandExtraOpts{.enabled = [this]() { return !m_project_interactor.scene_interactor().object_selection().empty(); }}
+        )
+        .pop_path_level()
 #if SLIC3R_ENABLE_WIN10_MESH_REPAIR
         .append_item(
             MenuItemName::FixObjectWithRepairAlgorithm,
@@ -1056,8 +1104,27 @@ void MenuCommandRegistrar::register_svg_or_text_volume_menu_commands()
         .append_item(
             MenuItemName::EditSvgOrText,
             "edit-svg-or-text",
-            []() {},
-            UIItemCommandExtraOpts{.todo = true}
+            [this]()
+            {
+                // Opens the tool that created the volume (it edits the selected one).
+                const auto& selection = m_project_interactor.scene_interactor().object_selection();
+                if (selection.elements.size() != 1) {
+                    return;
+                }
+                const Domain::ElementRef& ref = selection.elements.front();
+                const Domain::ModelVolume* volume =
+                    m_project_interactor.selected_project().find_volume_by_id(ref.object_id, ref.volume_id);
+                if (volume == nullptr) {
+                    return;
+                }
+                m_render_module
+                    .command(volume->is_svg() ? Platform::CommandName::SvgGizmo : Platform::CommandName::TextGizmo)
+                    .execute();
+            },
+            UIItemCommandExtraOpts{
+                .enabled = [this]()
+                { return m_project_interactor.scene_interactor().object_selection().elements.size() == 1; }
+            }
         )
         .append_item_from_command(
             MenuItemName::DeleteSelectedSvgOrText,
@@ -1347,6 +1414,138 @@ MenuCommandRegistrar::load_volume(Domain::ModelVolumeType type, Wildcards::TypeF
 }
 
 void MenuCommandRegistrar::load_shape_from_gallery(Domain::ModelVolumeType type) {}
+
+void MenuCommandRegistrar::show_about()
+{
+    const std::string text = fmt::format(
+        "{} {}\n\n{}\n\n{}\n\n{}",
+        SLIC3R_APP_NAME, SLIC3R_VERSION,
+        _u8L("PrusaSlicer is based on Slic3r by Alessandro Ranellucci and the RepRap community. "
+             "Developed by Prusa Research."),
+        _u8L("Licensed under GNU AGPLv3. Distributed in the hope that it will be useful, but "
+             "WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS "
+             "FOR A PARTICULAR PURPOSE."),
+        "https://www.prusa3d.com/prusaslicer/"
+    );
+    AppServices::instance().dialog_manager().show_info_dialog(text, fmt::format(fmt::runtime(_u8L("About {}")), SLIC3R_APP_NAME));
+}
+
+void MenuCommandRegistrar::show_system_info()
+{
+    const Render::Context& gl = Render::Context::instance();
+    const std::string text = fmt::format(
+        "{} {}\n{}: {}\n{}: {}\n\nOpenGL\n{}: {}\n{}: {}\n{}: {}\nGLSL: {}\n\n{}: {}\n{}: {}",
+        SLIC3R_APP_NAME, SLIC3R_VERSION,
+        _u8L("Platform"), platform_to_string(platform()),
+        _u8L("CPU threads"), std::thread::hardware_concurrency(),
+        _u8L("Vendor"), gl.gl_vendor_string(),
+        _u8L("Renderer"), gl.gl_renderer_string(),
+        _u8L("Version"), gl.gl_version_string(),
+        gl.glsl_version_string(),
+        _u8L("Data directory"), Slic3r::data_dir(),
+        _u8L("Resources directory"), Slic3r::resources_dir()
+    );
+    AppServices::instance().dialog_manager().show_info_dialog(text, _u8L("System Information"));
+}
+
+void MenuCommandRegistrar::show_keyboard_shortcuts()
+{
+    // All commands with a keyboard shortcut (2.x showed them grouped in a dialog).
+    auto translator = [](const std::string& s) { return Biz::_u8(s); };
+    std::vector<std::pair<std::string, std::string>> rows;
+    auto collect = [&](const Platform::CommandRegistry::CommandsMap& commands) {
+        for (const auto& [name, command] : commands) {
+            if (!command || !command->keyboard_shortcuts()) {
+                continue;
+            }
+            const std::string shortcut = command->keyboard_shortcut_string(translator);
+            if (shortcut.empty()) {
+                continue;
+            }
+            std::string label = name;
+            std::replace(label.begin(), label.end(), '-', ' ');
+            if (!label.empty()) {
+                label[0] = char(std::toupper(static_cast<unsigned char>(label[0])));
+            }
+            rows.emplace_back(shortcut, label);
+        }
+    };
+    collect(m_render_module.commands());
+    collect(m_render_module.gizmo_commands());
+    std::sort(rows.begin(), rows.end(), [](const auto& a, const auto& b) { return a.second < b.second; });
+    rows.erase(std::unique(rows.begin(), rows.end()), rows.end());
+    std::string text;
+    for (const auto& [shortcut, label] : rows) {
+        text += fmt::format("{}\t{}\n", shortcut, label);
+    }
+    text += "\n" + _u8L("Mouse: left drag = rotate, right drag = pan, wheel = zoom.");
+    AppServices::instance().dialog_manager().show_info_dialog(text, _u8L("Keyboard Shortcuts"));
+}
+
+void MenuCommandRegistrar::scale_selection_to_print_volume()
+{
+    auto& scene                                     = m_project_interactor.scene_interactor();
+    const std::optional<Biz::Scene::SelectionExtents> extents = scene.selection_bounding_box();
+    if (!extents) {
+        return;
+    }
+    const Domain::BedRef bed_ref = scene.bed_selection().last_selected_bed();
+    const Domain::BedInstance* bed_instance =
+        m_project_interactor.selected_project().find_bed_instance_by_id(bed_ref.instance_id);
+    if (bed_instance == nullptr) {
+        return;
+    }
+    const Domain::Bed& bed = bed_instance->bed.get();
+    if (bed.contour().empty()) {
+        return;
+    }
+    Domain::Vec2d bed_min = bed.contour().front(), bed_max = bed.contour().front();
+    for (const Domain::Vec2d& point : bed.contour()) {
+        bed_min = bed_min.cwiseMin(point);
+        bed_max = bed_max.cwiseMax(point);
+    }
+    const Domain::Vec2d bed_size   = bed_max - bed_min;
+    const Domain::Vec3d dimensions = extents->oriented_bounding_box().dimensions;
+    if (dimensions.minCoeff() <= 0.) {
+        return;
+    }
+    // As in 2.x: the largest uniform scale that fits, with a small margin.
+    double factor = std::min(bed_size.x() / dimensions.x(), bed_size.y() / dimensions.y());
+    if (bed.max_print_height() > 0.f) {
+        factor = std::min(factor, double(bed.max_print_height()) / dimensions.z());
+    }
+    factor *= 0.99;
+    if (std::abs(factor - 1.) < 1e-4) {
+        return;
+    }
+    const Domain::Vec3d center = extents->oriented_bounding_box().center;
+    const Domain::Vec3d bed_offset{bed_instance->transformation.get_offset()};
+    const Domain::Vec2d bed_center = 0.5 * (bed_min + bed_max) + Domain::Vec2d{bed_offset.x(), bed_offset.y()};
+    Domain::Transform3d transform{Domain::Transform3d::Identity()};
+    transform.translate(Domain::Vec3d{bed_center.x(), bed_center.y(), center.z()});
+    transform.scale(factor);
+    transform.translate(-center);
+    scene.transform_selection(transform.matrix(), true);
+    m_project_interactor.undo_provider().take_snapshot(Biz::UndoSnapshotType::ScaleToPrintVolume);
+}
+
+void MenuCommandRegistrar::mirror_selection(int axis)
+{
+    auto& scene                                     = m_project_interactor.scene_interactor();
+    const std::optional<Biz::Scene::SelectionExtents> extents = scene.selection_bounding_box();
+    if (!extents || axis < 0 || axis > 2) {
+        return;
+    }
+    const Domain::Vec3d center = extents->oriented_bounding_box().center;
+    Domain::Vec3d factors{1., 1., 1.};
+    factors[axis] = -1.;
+    Domain::Transform3d transform{Domain::Transform3d::Identity()};
+    transform.translate(center);
+    transform.scale(factors);
+    transform.translate(-center);
+    scene.transform_selection(transform.matrix(), true);
+    m_project_interactor.undo_provider().take_snapshot(Biz::UndoSnapshotType::Mirror);
+}
 
 void MenuCommandRegistrar::export_selection_as_stl_obj()
 {
@@ -1914,19 +2113,11 @@ void MenuCommandRegistrar::register_main_menu_help_commands()
         )
         // Menu -> Help -> Separator
         .register_menu_separator_item({MenuItemName::MainMenu, MenuItemName::Help})
-#ifdef SHOW_NOT_IMPLEMENTED_ITEMS
         // Menu -> Help -> System Info
         .register_menu_item(
             {MenuItemName::MainMenu, MenuItemName::Help, MenuItemName::SystemInfo},
-            std::make_unique<UIItemCommand>(
-                CommandName::SystemInfo,
-                [this]()
-                {
-                    // TODO: Implement system info functionality
-                }
-            )
+            std::make_unique<UIItemCommand>(CommandName::SystemInfo, [this]() { show_system_info(); })
         )
-#endif
         // Menu -> Help -> Config Folder
         .register_menu_item(
             {MenuItemName::MainMenu, MenuItemName::Help, MenuItemName::ConfigFolder},
@@ -1956,18 +2147,19 @@ void MenuCommandRegistrar::register_main_menu_help_commands()
                 }
             )
         )
-#ifdef SHOW_NOT_IMPLEMENTED_ITEMS
         // Menu -> Help -> About
         .register_menu_item(
             {MenuItemName::MainMenu, MenuItemName::Help, MenuItemName::About},
-            std::make_unique<UIItemCommand>(
-                CommandName::About,
-                [this]()
-                {
-                    // TODO: Implement about functionality
-                }
-            )
+            std::make_unique<UIItemCommand>(CommandName::About, [this]() { show_about(); })
         )
+        // Menu -> Help -> Separator
+        .register_menu_separator_item({MenuItemName::MainMenu, MenuItemName::Help})
+        // Menu -> Help -> Keyboard Shortcuts
+        .register_menu_item(
+            {MenuItemName::MainMenu, MenuItemName::Help, MenuItemName::KeyboardShortcutsDialog},
+            std::make_unique<UIItemCommand>(CommandName::KeyboardShortcutsDialog, [this]() { show_keyboard_shortcuts(); })
+        )
+#ifdef SHOW_NOT_IMPLEMENTED_ITEMS
         // Menu -> Help -> Tip Of The Day
         .register_menu_item(
             {MenuItemName::MainMenu, MenuItemName::Help, MenuItemName::TipOfTheDay},
@@ -1976,19 +2168,6 @@ void MenuCommandRegistrar::register_main_menu_help_commands()
                 [this]()
                 {
                     // TODO: Implement tip of the day functionality
-                }
-            )
-        )
-        // Menu -> Help -> Separator
-        .register_menu_separator_item({MenuItemName::MainMenu, MenuItemName::Help})
-        // Menu -> Help -> Keyboard Shortcuts
-        .register_menu_item(
-            {MenuItemName::MainMenu, MenuItemName::Help, MenuItemName::KeyboardShortcutsDialog},
-            std::make_unique<UIItemCommand>(
-                CommandName::KeyboardShortcutsDialog,
-                [this]()
-                {
-                    // TODO: Implement keyboard shortcuts functionality
                 }
             )
         )
@@ -2197,6 +2376,42 @@ void MenuCommandRegistrar::register_file_menu_export_commands()
                         return ExportActions::can_export(m_project_interactor)
                             && m_project_interactor.user_account_interactor().is_logged_in();
                     }
+                }
+            )
+        )
+        // File -> Export -> Export plate as STL/OBJ
+        .register_menu_item(
+            {MenuItemName::FileMenu, MenuItemName::Export, MenuItemName::ExportPlateAsStl},
+            std::make_unique<UIItemCommand>(
+                "export-plate-as-stl",
+                [this]()
+                {
+                    const Domain::BedRef bed =
+                        m_project_interactor.scene_interactor().bed_selection().last_selected_bed();
+                    IDialogManager::FileCallback callback =
+                        [this, bed](const bool success, const std::vector<boost::filesystem::path>& file_paths)
+                    {
+                        if (success && !file_paths.empty()) {
+                            MeshExportLogic::export_bed(
+                                file_paths.front(), m_project_interactor.scene_interactor(), bed,
+                                &AppServices::instance().dialog_manager()
+                            );
+                        }
+                    };
+                    AppServices::instance().dialog_manager().show_file_dialog(
+                        FileDialogType::Save,
+                        _u8L("Export plate as STL/OBJ"),
+                        this->default_dialog_folder(),
+                        "plate.stl",
+                        Wildcards::generate_wildcards(
+                            Wildcards::TypeFlag::Stl | Wildcards::TypeFlag::Obj, Wildcards::TypeFlag::Stl
+                        ),
+                        callback
+                    );
+                },
+                UIItemCommandExtraOpts{
+                    .enabled = [this]()
+                    { return !m_project_interactor.selected_project().model().objects.empty(); }
                 }
             )
         )

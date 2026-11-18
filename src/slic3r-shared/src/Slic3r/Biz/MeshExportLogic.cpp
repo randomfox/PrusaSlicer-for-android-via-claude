@@ -107,6 +107,52 @@ mesh_for_object_export(const ModelObject& model_object, const ModelInstance* sin
 
 } // namespace
 
+bool export_bed(
+    const boost::filesystem::path& output_path,
+    const SceneInteractor& scene_interactor,
+    const Domain::BedRef& bed,
+    IMessageDialogProvider* dialog_provider
+)
+{
+    const Project& project            = scene_interactor.selected_project();
+    const Domain::BedInstance* bed_instance = project.find_bed_instance_by_id(bed.instance_id);
+    if (bed_instance == nullptr) {
+        return false;
+    }
+    TriangleMesh plate;
+    bool used_positive_parts_fallback = false;
+    for (const ModelInstance* instance : bed_instance->model_instances) {
+        if (instance == nullptr || !instance->is_printable()) {
+            continue;
+        }
+        ObjectExportMesh export_mesh = mesh_for_object_export(*instance->get_object(), instance);
+        used_positive_parts_fallback |= export_mesh.used_positive_parts_fallback;
+        plate.merge(export_mesh.mesh);
+    }
+    if (plate.empty()) {
+        if (dialog_provider != nullptr) {
+            dialog_provider->show_warning_dialog(_u8L("There are no printable objects on the plate."), _u8L("Export plate as STL/OBJ"));
+        }
+        return false;
+    }
+    const Domain::Vec3d bed_offset{bed_instance->transformation.get_offset()};
+    plate.translate(-bed_offset.x(), -bed_offset.y(), 0.f);
+
+    if (used_positive_parts_fallback && dialog_provider != nullptr) {
+        dialog_provider->show_warning_dialog(
+            _u8L("Unable to perform boolean operation on model meshes. Only positive parts will be exported."),
+            _u8L("Export plate as STL/OBJ")
+        );
+    }
+    if (!store_mesh_by_extension(output_path, plate)) {
+        if (dialog_provider != nullptr) {
+            dialog_provider->show_error_dialog(_u8L("Failed to export the plate."), _u8L("Export plate as STL/OBJ"));
+        }
+        return false;
+    }
+    return true;
+}
+
 std::string proposed_export_file_name(const SceneInteractor& scene_interactor)
 {
     const ObjectSelection& selection = scene_interactor.object_selection();

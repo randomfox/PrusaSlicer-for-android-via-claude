@@ -738,7 +738,8 @@ void ArrangeInteractor::arrange(
     const Domain::ConstModelInstanceList& extra,
     const Settings& settings,
     std::function<void()> on_finished,
-    const std::string& job_name
+    const std::string& job_name,
+    std::function<void(const Domain::ElementRefs& unpacked)> on_unpacked
 )
 {
     if (project_id == Domain::INVALID_ID) {
@@ -790,10 +791,19 @@ void ArrangeInteractor::arrange(
             wipe_tower_per_bed)
         .set_project_id(project_id)
         .on_result(
-            [this, project_id, settings, on_finished, config_container_to_add_beds](
+            [this, project_id, settings, on_finished, config_container_to_add_beds, on_unpacked](
                 const std::optional<ArrangeLocalResult>& result)
             {
                 if (!result || m_workbench.find_project_by_id(project_id) == nullptr) {
+                    if (on_finished) {
+                        on_finished();
+                    }
+                    return;
+                }
+
+                if (on_unpacked && !config_container_to_add_beds) {
+                    apply_local_arrange_result(project_id, result->packs, {}, std::nullopt);
+                    on_unpacked(get_not_arranged(*result, true));
                     if (on_finished) {
                         on_finished();
                     }
@@ -912,6 +922,117 @@ void ArrangeInteractor::process_added_arrange_queue()
             }
         },
         "partial_arrange"
+    );
+}
+
+namespace {
+double polygon_area(const std::vector<Vec2d>& contour)
+{
+    double area = 0.;
+    for (std::size_t i = 0, n = contour.size(); i < n; ++i) {
+        const Vec2d& a = contour[i];
+        const Vec2d& b = contour[(i + 1) % n];
+        area += a.x() * b.y() - b.x() * a.y();
+    }
+    return std::abs(area) * 0.5;
+}
+} // namespace
+
+void ArrangeInteractor::fill_bed(const SelectionId project_id, const std::size_t object_id, const BedRef& target_bed)
+{
+    const Project* project{m_workbench.find_project_by_id(project_id)};
+    const ConfigContainer* config_container{project ? project->find_config_container(target_bed.config_container_id) : nullptr};
+    const BedInstance* bed_instance{project ? project->find_bed_instance_by_id(target_bed.instance_id) : nullptr};
+    const Domain::ModelObject* object{project ? project->find_object_by_id(object_id) : nullptr};
+    if (!config_container || !bed_instance || !object || object->instances.empty()) {
+        return;
+    }
+
+    // How many copies fit: free bed area / footprint (bounding box plus spacing), with some
+    // slack; arrange decides, the copies that do not fit are removed again.
+    constexpr double spacing = 3.0;
+    auto footprint = [](const ModelInstance& instance) {
+        const Vec2d size{BB::sizes(to_2d(instance_bounding_box(instance)))};
+        return (size.x() + spacing) * (size.y() + spacing);
+    };
+    double free_area = polygon_area(bed_instance->bed.get().contour());
+    for (const ModelInstance* instance : bed_instance->model_instances) {
+        free_area -= footprint(*instance);
+    }
+    const double one       = std::max(footprint(*object->instances.front()), 1.0);
+    const int extra        = std::clamp(int(std::floor(free_area / one * 1.25)) + 1, 0, 300);
+    if (extra <= 0) {
+        return;
+    }
+    const int original_count = int(object->instances.size());
+    const ElementRefs added  = m_scene_interactor.set_selected_objects_instance_count(original_count + extra);
+    if (added.empty()) {
+        return;
+    }
+
+    std::set<std::size_t> added_ids;
+    for (const ElementRef& ref : added) {
+        added_ids.insert(ref.instance_id);
+    }
+    BedToArrange bed_to_arrange{.ref = target_bed, .index = bed_instance->index(), .fixed_wipe_tower = true};
+    for (const ModelInstance* instance : bed_instance->model_instances) {
+        if (!added_ids.contains(instance->id().id)) {
+            bed_to_arrange.fixed.push_back(instance);
+        }
+    }
+    ConstModelInstanceList to_arrange;
+    for (const std::size_t id : added_ids) {
+        if (const ModelInstance* instance = project->find_instance_by_id(id)) {
+            to_arrange.push_back(instance);
+        }
+    }
+
+    const Settings settings{
+        .strategy        = Arrange::Strategy::Gravity,
+        .scaled_offset   = Algorithms::Scaling::scaled(spacing),
+        .allow_rotations = false
+    };
+    arrange(
+        project_id,
+        {bed_to_arrange},
+        std::nullopt,
+        to_arrange,
+        settings,
+        [this]() { m_scene_interactor.undo_provider().take_snapshot(UndoSnapshotType::SetNumberOfInstances); },
+        "fill_bed",
+        [this, project_id, object_id](const ElementRefs& unpacked) {
+            // All copies are identical: the first instances are kept, and those of them that
+            // did not fit take the positions of arranged copies that are dropped.
+            const Project* project{m_workbench.find_project_by_id(project_id)};
+            const Domain::ModelObject* object{project ? project->find_object_by_id(object_id) : nullptr};
+            if (!object || unpacked.empty()) {
+                return;
+            }
+            std::set<std::size_t> unpacked_ids;
+            for (const ElementRef& ref : unpacked) {
+                unpacked_ids.insert(ref.instance_id);
+            }
+            const std::size_t count = object->instances.size();
+            const std::size_t keep  = count - std::min(unpacked_ids.size(), count - 1);
+            std::vector<Vec2d> free_positions; // arranged copies that will be removed
+            for (std::size_t i = keep; i < count; ++i) {
+                if (!unpacked_ids.contains(object->instances[i]->id().id)) {
+                    free_positions.push_back(to_2d(object->instances[i]->get_transformation().get_offset()));
+                }
+            }
+            Trafos trafos;
+            for (std::size_t i = 0; i < keep && !free_positions.empty(); ++i) {
+                const ModelInstance* instance = object->instances[i];
+                if (unpacked_ids.contains(instance->id().id)) {
+                    trafos.push_back(Trafo{{object_id, instance->id().id}, free_positions.back(), 0.});
+                    free_positions.pop_back();
+                }
+            }
+            if (!trafos.empty()) {
+                m_scene_interactor.transform_instances(trafos);
+            }
+            m_scene_interactor.set_selected_objects_instance_count(int(keep));
+        }
     );
 }
 

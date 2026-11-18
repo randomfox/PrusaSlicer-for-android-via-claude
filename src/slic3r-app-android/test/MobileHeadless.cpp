@@ -32,6 +32,9 @@
 //   add_printer TYPE URL KEY  add + select a physical printer (TYPE: octoprint, prusalink)
 //   upload                 "Send to printer" (upload the sliced G-code to the selected printer)
 //   compare [material]     "Compare presets" (print presets, or material presets)
+//   cmd NAME               run a plater command / menu item (e.g. mirror-x)
+//   select_all             select all objects (Ctrl+A)
+//   dump_objects           print the objects and their instances (position, scale)
 //   text STRING            type text
 //   key CODE               press and release an Android key code
 //   shot FILE.png          save a screenshot
@@ -414,6 +417,22 @@ int main(int argc, char** argv)
                 app.project_interactor().preset_interactor(),
                 what == "material" ? std::optional{Slic3r::Domain::Preset::PresetKind::FdmMaterial} : std::nullopt);
             frames(3);
+        } else if (cmd == "cmd") {
+            std::string name; in >> name;
+            std::printf("[headless] cmd %s: %s\n", name.c_str(), app.execute_command(name) ? "ok" : "unavailable");
+            frames(5);
+        } else if (cmd == "select_all") {
+            std::printf("[headless] select all: %s\n", app.execute_command("select-all") ? "ok" : "unavailable");
+            frames(3);
+        } else if (cmd == "dump_objects") {
+            for (const auto* object : app.project_interactor().selected_project().model().objects) {
+                std::printf("[headless] object %s: %zu instances\n", object->name.c_str(), object->instances.size());
+                for (const auto* instance : object->instances) {
+                    const auto& t = instance->get_transformation();
+                    std::printf("[headless]   at (%.1f, %.1f, %.1f) scale (%.3f, %.3f, %.3f)\n", t.get_offset().x(), t.get_offset().y(),
+                                t.get_offset().z(), t.get_scaling_factor().x(), t.get_scaling_factor().y(), t.get_scaling_factor().z());
+                }
+            }
         } else if (cmd == "form") {
             MobileFormResult answer;
             in >> answer.button;

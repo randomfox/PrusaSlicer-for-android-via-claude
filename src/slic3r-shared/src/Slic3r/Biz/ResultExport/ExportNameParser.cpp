@@ -148,8 +148,14 @@ ExportNameData parse_fdm_export_name(
     parser.set("num_objects", (int)names.size());
     parser.set("num_instances", (int)bed_instance->model_instances.size());
 
-    // TODO
-    //physical_printer_preset
+    // The physical printer the export is meant for (2.x: the one selected in the printer combo).
+    {
+        std::string physical_printer;
+        if (const auto* printer = project_interactor.physical_printer_interactor().selected_physical_printer_data()) {
+            physical_printer = printer->name;
+        }
+        parser.set("physical_printer_preset", physical_printer);
+    }
 
     // This line might throw PlaceholderParserError
     result.filename = parser.process(output_filename_format);

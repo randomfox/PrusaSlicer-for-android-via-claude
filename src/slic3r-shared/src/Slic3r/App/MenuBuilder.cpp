@@ -153,6 +153,8 @@ std::string MenuBuilder::item_name_translated(UniversalMenuItemName menu_item_na
                     return Biz::_u8L("Send G-code");
                 case MenuItemName::ExportGcodeToFlash:
                     return Biz::_u8L("Export G-code to SD card / flash drive");
+                case MenuItemName::ExportPlateAsStl:
+                    return Biz::_u8L("Export plate as STL/OBJ") + "...";
                 case MenuItemName::OnlinePresetUpdate:
                     return Biz::_u8L("Update from online presets");
                 case MenuItemName::PresetReposManagement:
@@ -193,6 +195,14 @@ std::string MenuBuilder::item_name_translated(UniversalMenuItemName menu_item_na
                     return Biz::_u8L("To parts");
                 case MenuItemName::ScaleToPrintVolume:
                     return Biz::_u8L("Scale to print volume");
+                case MenuItemName::MirrorObject:
+                    return Biz::_u8L("Mirror");
+                case MenuItemName::MirrorObjectX:
+                    return Biz::_u8L("Along X axis");
+                case MenuItemName::MirrorObjectY:
+                    return Biz::_u8L("Along Y axis");
+                case MenuItemName::MirrorObjectZ:
+                    return Biz::_u8L("Along Z axis");
                 case MenuItemName::FixMultiObjectWithRepairAlgorithm:
                 case MenuItemName::FixObjectWithRepairAlgorithm:
                 case MenuItemName::FixVolumeWithRepairAlgorithm:

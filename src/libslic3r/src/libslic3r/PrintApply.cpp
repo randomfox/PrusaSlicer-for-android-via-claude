@@ -849,6 +849,10 @@ PlaceholderParser init_placeholder_parser(
     // set preset IDs to be compatible with legacy printers
     parser.set("printer_settings_id", metadata.printer.name);
     parser.set("print_settings_id", metadata.print.name);
+    // The physical printer is chosen when the G-code is exported (after slicing), so it is not
+    // known here; define the 2.x placeholders so custom G-code using them still works.
+    parser.set("physical_printer_preset", std::string{});
+    parser.set("physical_printer_settings_id", std::string{});
     {
         std::vector<std::string> names;
         for (const auto& mm : metadata.materials) {

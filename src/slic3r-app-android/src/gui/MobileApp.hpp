@@ -85,6 +85,10 @@ public:
 
     bool is_ready() const { return m_init_completed; }
 
+    /// Runs a command of the plater (menu items, tools) by name. Returns false when the command
+    /// does not exist or is disabled.
+    bool execute_command(const std::string& name);
+
     /// The project (presets, objects, slicing). Valid once is_ready().
     Biz::ProjectInteractor& project_interactor() { return *m_project_interactor; }
 

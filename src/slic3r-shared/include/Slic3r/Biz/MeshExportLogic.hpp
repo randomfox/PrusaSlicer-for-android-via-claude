@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Slic3r/Domain/BedRef.hpp"
+
 #include <boost/filesystem/path.hpp>
 
 #include <string>
@@ -30,6 +32,18 @@ std::string proposed_export_file_name(const Scene::SceneInteractor& scene_intera
 bool export_selection(
     const boost::filesystem::path& output_path,
     const Scene::SceneInteractor& scene_interactor,
+    IMessageDialogProvider* dialog_provider
+);
+
+/**
+ * @brief 2.x "Export plate as STL/OBJ": all printable instances on the given bed merged into
+ * one mesh (placed as if the bed were the first one).
+ * @return False when nothing was written (no printable objects, or a write error).
+ */
+bool export_bed(
+    const boost::filesystem::path& output_path,
+    const Scene::SceneInteractor& scene_interactor,
+    const Domain::BedRef& bed,
     IMessageDialogProvider* dialog_provider
 );
 

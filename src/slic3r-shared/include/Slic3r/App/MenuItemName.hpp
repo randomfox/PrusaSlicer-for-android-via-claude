@@ -76,6 +76,7 @@ enum class MenuItemName
     ExportGcode,
     SendGcode,
     ExportGcodeToFlash,
+    ExportPlateAsStl,
 
     OnlinePresetUpdate,
     PresetReposManagement,
@@ -110,6 +111,10 @@ enum class MenuItemName
     SplitObjectToObjects,
     SplitObjectToVolumes,
     ScaleToPrintVolume,
+    MirrorObject,
+    MirrorObjectX,
+    MirrorObjectY,
+    MirrorObjectZ,
     FixObjectWithRepairAlgorithm,
     AddVolume,
     SolidPartVolume,

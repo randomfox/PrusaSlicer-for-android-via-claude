@@ -87,6 +87,10 @@ static std::string to_string(Biz::UndoSnapshotType type)
         return _u8L("Set scale");
     case Type::RevertScale:
         return _u8L("Revert scale");
+    case Type::Mirror:
+        return _u8L("Mirror");
+    case Type::ScaleToPrintVolume:
+        return _u8L("Scale to print volume");
     case Type::PlaceOnFace:
         return _u8L("Place on face");
     case Type::Arrange:
