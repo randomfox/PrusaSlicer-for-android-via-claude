@@ -29,7 +29,7 @@ Status: ✅ done in this branch · ⏳ in progress · ☐ open
 | ☐ | Sequential arrange (`libseqarrange`) | not built |
 | ☐ | Tool changes / extruder sequence on the layer slider (multi-tool) | disabled upstream on purpose (`ysFIXME-spe3494`, an internal Prusa ticket); slicing still supports the modes |
 | ☐ | Auto color change | stub |
-| ☐ | Object info (size, volume, facets, mesh errors) | no UI |
+| ✅ | Object info (size, volume, facets, mesh errors) | object context menu > Object info |
 | ☐ | Shape gallery | MCR `.todo` items, `resources/shapes` missing |
 | ☐ | Import / export config (.ini), load config from G-code | YAML presets only |
 | ☐ | Custom G-code editor with placeholder list | plain text fields |

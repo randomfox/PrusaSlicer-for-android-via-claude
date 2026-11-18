@@ -636,6 +636,12 @@ void MenuCommandRegistrar::register_object_menu_commands()
                 .enabled = [this]() { return !m_project_interactor.scene_interactor().object_selection().empty(); }
             }
         )
+        .append_item(
+            MenuItemName::ObjectInfo,
+            "object-info",
+            [this]() { show_object_info(); },
+            UIItemCommandExtraOpts{.enabled = [this]() { return m_project_interactor.scene_interactor().object_selection().only_single_object(); }}
+        )
         .push_path_level(MenuItemName::MirrorObject)
         .append_item(
             MenuItemName::MirrorObjectX,
@@ -1447,6 +1453,71 @@ void MenuCommandRegistrar::show_system_info()
         _u8L("Resources directory"), Slic3r::resources_dir()
     );
     AppServices::instance().dialog_manager().show_info_dialog(text, _u8L("System Information"));
+}
+
+void MenuCommandRegistrar::show_object_info()
+{
+    // 2.x "Info" panel of the object list: size, volume, facets and mesh errors.
+    const auto& selection = m_project_interactor.scene_interactor().object_selection();
+    if (!selection.only_single_object()) {
+        return;
+    }
+    const Domain::ModelObject* object =
+        m_project_interactor.selected_project().find_object_by_id(selection.elements.front().object_id);
+    if (object == nullptr || object->instances.empty()) {
+        return;
+    }
+    const Domain::Transform3d instance_matrix = object->instances.front()->get_matrix();
+
+    double volume = 0.;
+    size_t facets = 0;
+    int parts = 0, open_edges = 0;
+    Domain::RepairedMeshErrors repaired;
+    for (const Domain::ModelVolume* model_volume : object->volumes) {
+        if (!model_volume->is_model_part()) {
+            continue;
+        }
+        const Domain::TriangleMesh& mesh  = model_volume->mesh();
+        const Domain::TriangleMeshStats& stats = mesh.stats();
+        const double scale = std::abs((instance_matrix * model_volume->get_matrix()).linear().determinant());
+        volume += double(stats.volume >= 0.f ? stats.volume : Domain::its_volume(mesh.its)) * scale;
+        facets += mesh.facets_count();
+        parts += stats.number_of_parts;
+        open_edges += stats.open_edges;
+        repaired.merge(stats.repaired_errors);
+    }
+
+    std::string text = object->name + "\n\n";
+    if (const std::optional<Biz::Scene::SelectionExtents> extents =
+            m_project_interactor.scene_interactor().selection_bounding_box()) {
+        const Domain::Vec3d size = extents->oriented_bounding_box().dimensions;
+        text += fmt::format("{}: {:.2f} x {:.2f} x {:.2f} mm\n", _u8L("Size"), size.x(), size.y(), size.z());
+    }
+    text += fmt::format("{}: {:.2f} mm³\n", _u8L("Volume"), volume);
+    text += fmt::format("{}: {}\n", _u8L("Facets"), facets);
+    text += fmt::format("{}: {}\n", _u8L("Parts"), parts);
+    text += fmt::format("{}: {}\n", _u8L("Instances"), object->instances.size());
+    if (open_edges > 0) {
+        text += fmt::format("{}: {}\n", _u8L("Open edges"), open_edges);
+    }
+    if (repaired.repaired()) {
+        text += "\n" + _u8L("Auto-repaired errors") + ":\n";
+        const std::pair<int, std::string> errors[] = {
+            {repaired.edges_fixed, _u8L("edges fixed")},
+            {repaired.degenerate_facets, _u8L("degenerate facets")},
+            {repaired.facets_removed, _u8L("facets removed")},
+            {repaired.facets_reversed, _u8L("facets reversed")},
+            {repaired.backwards_edges, _u8L("backwards edges")},
+        };
+        for (const auto& [count, label] : errors) {
+            if (count > 0) {
+                text += fmt::format("  {} {}\n", count, label);
+            }
+        }
+    } else if (open_edges == 0) {
+        text += "\n" + _u8L("No errors detected");
+    }
+    AppServices::instance().dialog_manager().show_info_dialog(text, _u8L("Object info"));
 }
 
 void MenuCommandRegistrar::show_keyboard_shortcuts()

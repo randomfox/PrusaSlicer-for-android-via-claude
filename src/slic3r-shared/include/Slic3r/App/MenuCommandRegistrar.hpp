@@ -106,6 +106,7 @@ private:
     void mirror_selection(int axis);
     void show_about();
     void show_system_info();
+    void show_object_info();
     void show_keyboard_shortcuts();
 
     void replace_selected_volume_with_stl();
