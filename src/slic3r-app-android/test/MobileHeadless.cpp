@@ -373,8 +373,15 @@ int main(int argc, char** argv)
             frames(3);
         } else if (cmd == "set_print_bool") {
             std::string key; int value = 0; in >> key >> value;
-            app.project_interactor().preset_interactor().set_preset_value(
-                Slic3r::Domain::FDMConfigLocation::Print, 0, key, [value](Slic3r::Domain::ConfigItem& item) { item.set<bool>(value != 0); });
+            // Like the settings UI: through set_item_value (notifies slicing).
+            auto& presets      = app.project_interactor().preset_interactor();
+            const auto& box    = presets.selected_printer_preset().print.config_box();
+            const auto found   = box.find(key);
+            if (found.item != nullptr) {
+                presets.set_item_value(*found.item, Slic3r::Domain::ConfigValue{value != 0});
+            } else {
+                std::printf("[headless] no option %s\n", key.c_str());
+            }
             frames(3);
         } else if (cmd == "set_print_script") {
             std::string rest; std::getline(in, rest);

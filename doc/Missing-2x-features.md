@@ -25,7 +25,7 @@ Status: ✅ done in this branch · ⏳ in progress · ☐ open
 | | Feature | Notes |
 |---|---|---|
 | ☐ | Standalone G-code viewer (open .gcode/.bgcode) | `--gcodeviewer` parsed but ignored |
-| ☐ | Sequential printing: extruder clearance collision check | missing in `Print::validate` |
+| ✅ | Sequential printing: extruder clearance collision check | missing in `Print::validate` |
 | ☐ | Sequential arrange (`libseqarrange`) | not built |
 | ☐ | Tool changes / extruder sequence on the layer slider (multi-tool) | disabled (`spe3494`) |
 | ☐ | Auto color change | stub |
@@ -36,12 +36,12 @@ Status: ✅ done in this branch · ⏳ in progress · ☐ open
 | ☐ | Optimize orientation | algorithm not ported |
 | ☐ | AMF import | |
 | ☐ | Print host upload queue window | notifications only |
-| ☐ | Bonjour "Browse" for printers | backend only |
+| ✅ | Bonjour "Browse" for printers | search button next to the host field (not tested: no printer on the test network) |
 | ☐ | 2.x profiles: translate `compatible_*_condition` | pinned to one printer model |
 | ☐ | Post-processing scripts on Windows | done for Linux, macOS and Android (this branch) |
 | ☐ | Legacy 3MF projects without a resolvable printer | load empty |
-| ☐ | Undo of custom G-code / color changes | not serialized |
-| ☐ | Per-project filament colour | hidden |
+| ✅ | Undo of custom G-code / color changes | serialized, slider edits take a snapshot |
+| — | Per-project filament colour | intentionally hidden upstream; the sidebar colour picker (`extruder_colour`) covers it |
 
 ## Batch 3: large or desktop only
 | | Feature | Notes |
