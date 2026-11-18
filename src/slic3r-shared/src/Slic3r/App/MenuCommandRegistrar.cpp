@@ -1518,14 +1518,22 @@ void MenuCommandRegistrar::scale_selection_to_print_volume()
     if (std::abs(factor - 1.) < 1e-4) {
         return;
     }
+    // Scale around the selection center, then move it to the bed center.
     const Domain::Vec3d center = extents->oriented_bounding_box().center;
-    const Domain::Vec3d bed_offset{bed_instance->transformation.get_offset()};
-    const Domain::Vec2d bed_center = 0.5 * (bed_min + bed_max) + Domain::Vec2d{bed_offset.x(), bed_offset.y()};
-    Domain::Transform3d transform{Domain::Transform3d::Identity()};
-    transform.translate(Domain::Vec3d{bed_center.x(), bed_center.y(), center.z()});
-    transform.scale(factor);
-    transform.translate(-center);
-    scene.transform_selection(transform.matrix(), true);
+    Domain::Transform3d scale{Domain::Transform3d::Identity()};
+    scale.translate(center);
+    scale.scale(factor);
+    scale.translate(-center);
+    scene.transform_selection(scale.matrix(), true);
+
+    if (const std::optional<Biz::Scene::SelectionExtents> scaled = scene.selection_bounding_box()) {
+        const Domain::Vec3d bed_offset{bed_instance->transformation.get_offset()};
+        const Domain::Vec2d bed_center = 0.5 * (bed_min + bed_max) + Domain::Vec2d{bed_offset.x(), bed_offset.y()};
+        const Domain::Vec3d now        = scaled->oriented_bounding_box().center;
+        Domain::Transform3d move{Domain::Transform3d::Identity()};
+        move.translate(Domain::Vec3d{bed_center.x() - now.x(), bed_center.y() - now.y(), 0.});
+        scene.transform_selection(move.matrix(), true);
+    }
     m_project_interactor.undo_provider().take_snapshot(Biz::UndoSnapshotType::ScaleToPrintVolume);
 }
 

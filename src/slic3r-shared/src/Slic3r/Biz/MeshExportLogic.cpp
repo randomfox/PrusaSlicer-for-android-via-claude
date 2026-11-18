@@ -136,7 +136,7 @@ bool export_bed(
         return false;
     }
     const Domain::Vec3d bed_offset{bed_instance->transformation.get_offset()};
-    plate.translate(float(-bed_offset.x()), float(-bed_offset.y()), 0.f);
+    plate.translate(Domain::Vec3f{float(-bed_offset.x()), float(-bed_offset.y()), 0.f});
 
     if (used_positive_parts_fallback && dialog_provider != nullptr) {
         dialog_provider->show_warning_dialog(

@@ -426,8 +426,12 @@ int main(int argc, char** argv)
             frames(3);
         } else if (cmd == "dump_objects") {
             for (const auto* object : app.project_interactor().selected_project().model().objects) {
-                std::printf("[headless] object %s: %zu instances\n", object->name.c_str(), object->instances.size());
-                for (const auto* instance : object->instances) {
+                const auto& bb = Slic3r::Biz::Algorithms::ModelObject::bounding_box_exact(*object);
+                std::printf("[headless] object %s: %zu instances, size %.1f x %.1f x %.1f, from (%.1f, %.1f, %.1f)\n", object->name.c_str(),
+                            object->instances.size(), bb.max.x() - bb.min.x(), bb.max.y() - bb.min.y(), bb.max.z() - bb.min.z(),
+                            bb.min.x(), bb.min.y(), bb.min.z());
+                for (size_t i = 0; i < object->instances.size() && i < 4; ++i) {
+                    const auto* instance = object->instances[i];
                     const auto& t = instance->get_transformation();
                     std::printf("[headless]   at (%.1f, %.1f, %.1f) scale (%.3f, %.3f, %.3f)\n", t.get_offset().x(), t.get_offset().y(),
                                 t.get_offset().z(), t.get_scaling_factor().x(), t.get_scaling_factor().y(), t.get_scaling_factor().z());

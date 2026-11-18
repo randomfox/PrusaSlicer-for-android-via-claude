@@ -9,16 +9,16 @@ Status: ✅ done in this branch · ⏳ in progress · ☐ open
 ## Batch 1: small, high value
 | | Feature | Notes |
 |---|---|---|
-| ☐ | Fill bed with instances | MCR `.todo` menu item, empty handler |
-| ☐ | Scale to print volume | MCR `.todo` menu item, empty handler |
-| ☐ | Mirror object/part (X, Y, Z) | no command in 3.x |
-| ☐ | Edit text / SVG from the context menu | MCR `.todo`; the tools themselves work |
-| ☐ | Export whole plate as STL/OBJ | export required a single object |
-| ☐ | `automatic_extrusion_widths` | visible checkbox that did nothing |
-| ☐ | SLA statistics: material cost and weight | `bottle_*`, `material_density` unused, always 0 |
-| ☐ | SLA exposure time limits validation | check commented out |
-| ☐ | `physical_printer_preset` placeholder | custom G-code using it breaks |
-| ☐ | Keyboard shortcuts / About / System info dialogs | hidden TODO menu items |
+| ✅ | Fill bed with instances | MCR `.todo` menu item, empty handler |
+| ✅ | Scale to print volume | MCR `.todo` menu item, empty handler |
+| ✅ | Mirror object/part (X, Y, Z) | no command in 3.x |
+| ✅ | Edit text / SVG from the context menu | MCR `.todo`; the tools themselves work |
+| ✅ | Export whole plate as STL/OBJ | export required a single object |
+| ✅ | `automatic_extrusion_widths` | visible checkbox that did nothing |
+| ✅ | SLA statistics: material cost and weight | `bottle_*`, `material_density` unused, always 0 |
+| ✅ | SLA validation (exposure limits, head penetration, pinhead diameter, tilt) | checks were commented out |
+| ✅ | `physical_printer_preset` placeholder | custom G-code using it breaks |
+| ✅ | Keyboard shortcuts / About / System info dialogs | hidden TODO menu items |
 | ☐ | Export toolpaths as OBJ | backend exists (`libvgcode`), no UI |
 
 ## Batch 2: medium
@@ -38,7 +38,7 @@ Status: ✅ done in this branch · ⏳ in progress · ☐ open
 | ☐ | Print host upload queue window | notifications only |
 | ☐ | Bonjour "Browse" for printers | backend only |
 | ☐ | 2.x profiles: translate `compatible_*_condition` | pinned to one printer model |
-| ☐ | Post-processing scripts on Windows | POSIX only |
+| ☐ | Post-processing scripts on Windows | done for Linux, macOS and Android (this branch) |
 | ☐ | Legacy 3MF projects without a resolvable printer | load empty |
 | ☐ | Undo of custom G-code / color changes | not serialized |
 | ☐ | Per-project filament colour | hidden |
