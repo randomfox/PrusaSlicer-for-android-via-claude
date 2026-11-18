@@ -305,6 +305,21 @@ void serialize(Archive& archive, Slic3r::Domain::Preset::EvaluatedMaterialPreset
     archive(preset.preset, preset.mat_db_match_rule);
 }
 
+// (Shared lists are written once per reference; they are not shared again after loading.)
+template <class Archive>
+void save(Archive& archive, const Slic3r::Domain::Preset::SharedMaterialPresets& presets)
+{
+    archive(presets.list());
+}
+
+template <class Archive>
+void load(Archive& archive, Slic3r::Domain::Preset::SharedMaterialPresets& presets)
+{
+    Slic3r::Domain::Preset::SharedMaterialPresets::List list;
+    archive(list);
+    presets = Slic3r::Domain::Preset::SharedMaterialPresets{std::move(list)};
+}
+
 template <class Archive>
 void serialize(Archive& archive, Slic3r::Domain::Preset::EvaluatedPrintPreset& preset)
 {

@@ -29,6 +29,8 @@ public:
         m_vendor_info(vendor_info)
     {
         build_named_presets();
+        m_fdm_materials_use_print = compute_material_conditions_use_print(Domain::Preset::PresetKind::FdmMaterial);
+        m_sla_materials_use_print = compute_material_conditions_use_print(Domain::Preset::PresetKind::SlaMaterial);
     }
 
     EvaluatedPrinterPresets evaluate(const HwPrinterConfig& hw_config, bool use_material_cache = true) const;
@@ -95,6 +97,12 @@ private:
     const Domain::Preset::VendorInfo& m_vendor_info;
     IdentifiedPresetsCollection m_preset_ids;
     Expr::Eval m_eval;
+
+    /// Whether any material condition reads print.* variables (then the evaluated materials
+    /// differ between print presets and cannot be shared by them).
+    bool compute_material_conditions_use_print(Domain::Preset::PresetKind kind) const;
+    bool m_fdm_materials_use_print{true};
+    bool m_sla_materials_use_print{true};
 };
 
 

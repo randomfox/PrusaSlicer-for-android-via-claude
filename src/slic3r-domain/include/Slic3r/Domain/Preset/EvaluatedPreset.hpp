@@ -2,6 +2,7 @@
 
 #include "MatDbMatchRule.hpp"
 
+#include <memory>
 #include <vector>
 #include <set>
 #include <string>
@@ -50,7 +51,7 @@ struct EvaluatedPreset
 
     bool has_same_values(const EvaluatedPreset& rhs) const
     {
-#ifndef _NDEBUG
+#ifndef NDEBUG
         if (rhs.name.starts_with(name.substr(0, 20))
             && !(
                 kind == rhs.kind
@@ -198,7 +199,58 @@ struct EvaluatedMaterialPreset
 
 };
 
-using SingleToolEvaluatedMaterialPresets = std::vector<EvaluatedMaterialPreset>;
+/**
+ * @brief The material presets of one material slot: an immutable list shared by all print
+ * presets and slots with the same tool (copy on write).
+ *
+ * The evaluated material presets are by far the largest part of the preset bundle (each
+ * hardware configuration has all its materials for every print preset and slot), and for most
+ * of them the lists are identical. Reads behave like a const std::vector.
+ */
+class SharedMaterialPresets
+{
+public:
+    using List           = std::vector<EvaluatedMaterialPreset>;
+    using value_type     = EvaluatedMaterialPreset;
+    using size_type      = List::size_type;
+    using const_iterator = List::const_iterator;
+    using iterator       = List::const_iterator;
+
+    SharedMaterialPresets() = default;
+    SharedMaterialPresets(List list) : m_list(std::make_shared<const List>(std::move(list))) {}
+
+    const List& list() const { return m_list ? *m_list : empty_list(); }
+    /// Copy on write: a private copy when the list is shared.
+    List& mutable_list()
+    {
+        if (!m_list) {
+            m_list = std::make_shared<const List>();
+        }
+        if (m_list.use_count() > 1) {
+            m_list = std::make_shared<const List>(*m_list);
+        }
+        return const_cast<List&>(*m_list);
+    }
+
+    const_iterator begin() const { return list().begin(); }
+    const_iterator end() const { return list().end(); }
+    size_type size() const { return list().size(); }
+    bool empty() const { return list().empty(); }
+    const value_type& operator[](size_type i) const { return list()[i]; }
+    const value_type& at(size_type i) const { return list().at(i); }
+    const value_type& front() const { return list().front(); }
+    const value_type& back() const { return list().back(); }
+
+private:
+    static const List& empty_list()
+    {
+        static const List empty;
+        return empty;
+    }
+    std::shared_ptr<const List> m_list;
+};
+
+using SingleToolEvaluatedMaterialPresets = SharedMaterialPresets;
 using AllToolsEvaluatedMaterialPresets  = std::vector<SingleToolEvaluatedMaterialPresets>;
 
 

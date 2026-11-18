@@ -61,13 +61,13 @@ const EvaluatedPrinterPreset* Bundle::find_printer_preset_with_same_values(
 
 namespace {
 
-template <typename T>
+template <typename AllToolsPresets>
 Bundle::UsedSlots get_preset_used_slots(
     const EvaluatedPrinterPresets& evaluated_presets,
     const std::string& hw_config_id,
     const std::string& printer_id,
     const std::string& print_id,
-    const std::function<const std::vector<std::vector<T>>&(const EvaluatedPrintPreset&)>& get_preset
+    const std::function<const AllToolsPresets&(const EvaluatedPrintPreset&)>& get_preset
 )
 {
     Bundle::UsedSlots ret;
@@ -108,7 +108,7 @@ Bundle::UsedSlots Bundle::get_tool_print_preset_used_slots(
     const std::string& print_id
 ) const
 {
-    return get_preset_used_slots<EvaluatedToolPrintPreset>(
+    return get_preset_used_slots<AllToolsEvaluatedToolPrintPresets>(
         evaluated_presets,
         hw_config_id,
         printer_id,
@@ -123,7 +123,7 @@ Bundle::UsedSlots Bundle::get_material_preset_used_slots(
     const std::string& print_id
 ) const
 {
-    return get_preset_used_slots<EvaluatedMaterialPreset>(
+    return get_preset_used_slots<AllToolsEvaluatedMaterialPresets>(
         evaluated_presets,
         hw_config_id,
         printer_id,

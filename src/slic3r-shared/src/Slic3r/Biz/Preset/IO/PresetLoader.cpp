@@ -117,7 +117,7 @@ std::tuple<PresetLoader::PresetCollection, PresetLoader::PresetNamesCollection> 
     m_preset_names.clear();
     m_presets.clear();
 
-    return {presets, names};
+    return {std::move(presets), std::move(names)};
 }
 
 Domain::Preset::PresetNamesCollection collect_names(

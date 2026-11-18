@@ -3426,11 +3426,12 @@ void drop_preset(
                     }
                 } else if (material_selected) {
                     for (auto& single_tool : print.materials) {
-                        auto it = std::ranges::remove_if(
-                            single_tool,
+                        auto& list = single_tool.mutable_list();
+                        auto it    = std::ranges::remove_if(
+                            list,
                             [&preset_id](const auto& p) { return p.preset.id == preset_id; }
                         );
-                        single_tool.erase(it.begin(), it.end());
+                        list.erase(it.begin(), it.end());
                     }
                 }
             }

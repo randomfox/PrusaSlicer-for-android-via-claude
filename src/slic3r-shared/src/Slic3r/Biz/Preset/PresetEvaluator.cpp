@@ -522,6 +522,25 @@ void PresetEvaluator::fill_missing_tool_overrides_from_print(
     }
 }
 
+namespace {
+bool node_conditions_use_print(const Domain::Preset::PresetNode& node)
+{
+    if (node.condition && node.condition->expr_str.find("print.") != std::string::npos) {
+        return true;
+    }
+    return std::ranges::any_of(node.variants, node_conditions_use_print);
+}
+} // namespace
+
+bool PresetEvaluator::compute_material_conditions_use_print(Domain::Preset::PresetKind kind) const
+{
+    auto presets_it = m_presets.find(kind);
+    if (presets_it == m_presets.end()) {
+        return false; // no materials of this kind
+    }
+    return std::ranges::any_of(presets_it->second, [](const auto& root) { return node_conditions_use_print(root); });
+}
+
 PresetEvaluator::EvaluatedPrinterPresets PresetEvaluator::evaluate(const HwPrinterConfig& hw_config, bool use_material_cache) const
 {
     Expr::ValueMap printer_values;
@@ -553,7 +572,14 @@ PresetEvaluator::EvaluatedPrinterPresets PresetEvaluator::evaluate(const HwPrint
 
     EvaluatedPrinterPresets ret;
 
+    using MaterialCache = std::map<std::string, Domain::Preset::SharedMaterialPresets>;
+    // FFF material conditions use the printer, tool, feeder and sheet, not the print preset:
+    // then all print presets of a printer preset share the evaluated material lists.
+    const bool materials_depend_on_print =
+        hw_config.technology == Domain::PrinterTechnology::FFF ? m_fdm_materials_use_print : m_sla_materials_use_print;
+
     for (const auto& printer_preset : printer_presets) {
+        MaterialCache printer_material_cache;
         EvaluatedPrinterPreset ep{.hw_config = hw_config};
         ep.preset = preset_from_context<Domain::PrinterSettings, Domain::SLAPrinterSettings>(
             hw_config,
@@ -649,9 +675,10 @@ PresetEvaluator::EvaluatedPrinterPresets PresetEvaluator::evaluate(const HwPrint
 
             Domain::Preset::AllToolsEvaluatedMaterialPresets materials;
 
-            using MaterialCache =
-                std::map<std::string, Domain::Preset::SingleToolEvaluatedMaterialPresets>;
-            MaterialCache material_cache;
+            // Per print preset unless the material conditions cannot depend on the print preset
+            // (then the printer preset level cache is used, see below).
+            MaterialCache print_material_cache;
+            MaterialCache& material_cache = materials_depend_on_print ? print_material_cache : printer_material_cache;
             for (const auto& it : Domain::Preset::MaterialIterator{hw_config}) {
                 Expr::ValueMap tool_values = print_values;
                 const auto& tool = it.tool_config();
@@ -664,7 +691,7 @@ PresetEvaluator::EvaluatedPrinterPresets PresetEvaluator::evaluate(const HwPrint
                 //     append_feeder_values(feeder_values, feeder);
                 // }
 
-                Domain::Preset::SingleToolEvaluatedMaterialPresets variants;
+                Domain::Preset::SharedMaterialPresets::List variants;
                 // Cache key is tool.id because tool_values only depends on
                 // print_values (shared) + tool.features (same for same tool.id).
                 // If feeder values are added to tool_values, the cache key must
@@ -673,8 +700,8 @@ PresetEvaluator::EvaluatedPrinterPresets PresetEvaluator::evaluate(const HwPrint
                     if (const auto cache_it = material_cache.find(tool.id);
                         cache_it != material_cache.end())
                     {
-                        variants = cache_it->second;
-                        materials.emplace_back(std::move(variants));
+                        // Shared, not copied.
+                        materials.emplace_back(cache_it->second);
                         continue;
                     }
                 }
@@ -697,10 +724,11 @@ PresetEvaluator::EvaluatedPrinterPresets PresetEvaluator::evaluate(const HwPrint
                         make_match_rule(mat.features)
                     );
                 }
+                Domain::Preset::SharedMaterialPresets shared{std::move(variants)};
                 if (use_material_cache) {
-                    material_cache[tool.id] = variants;
+                    material_cache[tool.id] = shared;
                 }
-                materials.emplace_back(std::move(variants));
+                materials.emplace_back(std::move(shared));
             }
 
             // For FFF add only prints with tools filled
@@ -745,7 +773,7 @@ PresetEvaluator::EvaluatedPrinterPresets PresetEvaluator::evaluate(const HwPrint
                 Domain::Preset::EvaluatedPrintPreset& print = it->get();
                 std::for_each(++it, prints_to_dedup.end(), [&print](const auto& p)
                 {
-                    auto preset = p.get();
+                    const auto& preset = p.get();
                     // assert that all preset values for same
                     DEBUG_ASSERT(print.preset.values == preset.preset.values);
                     // assert that all tool print presets has same size
