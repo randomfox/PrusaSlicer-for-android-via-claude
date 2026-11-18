@@ -19,7 +19,24 @@ namespace Slic3r::Domain::Preset {
 struct Bundle;
 } // namespace Slic3r::Domain::Preset
 
+namespace Slic3r::Biz {
+struct LegacyPresetMetadata;
+}
+namespace Slic3r::Domain::Preset {
+struct SelectedPresetMetadata;
+}
+
 namespace Slic3r::Biz::FileLoadingLogic {
+
+/**
+ * Finds the presets for a configuration written by PrusaSlicer 2.x (3MF, INI or G-code) in the
+ * bundle, and fits the configuration to the printer's tool and material slot counts.
+ */
+tl::expected<Domain::Preset::SelectedPresetMetadata, std::string> resolve_legacy_preset(
+    LegacyPresetMetadata& legacy_preset,
+    Domain::ConfigPack& config_pack,
+    const Domain::Preset::Bundle& bundle
+);
 
 /**
  * Loading project from file.

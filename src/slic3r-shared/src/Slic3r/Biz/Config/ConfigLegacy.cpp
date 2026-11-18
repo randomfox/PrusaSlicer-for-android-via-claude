@@ -775,6 +775,14 @@ ConfigPack load_config_from_legacy_file(const std::string& filename)
     return convert_dynamic_print_config_to_new(cfg);
 }
 
+LegacyPresetAndConfig load_preset_and_config_from_legacy_file(const std::string& filename)
+{
+    Slic3rLegacy::DynamicPrintConfig cfg = load_legacy_config_from_legacy_file(filename);
+    LegacyPresetAndConfig result{.config = convert_dynamic_print_config_to_new(cfg), .metadata = {}};
+    result.metadata = extract_legacy_preset_metadata(cfg);
+    return result;
+}
+
 static std::vector<double> get_nozzle_diameters(const Domain::Preset::HwPrinterConfig& hw_config)
 {
     std::vector<double> result;

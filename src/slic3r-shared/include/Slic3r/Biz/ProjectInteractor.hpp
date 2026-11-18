@@ -194,6 +194,22 @@ public:
      * @return An error message when the file cannot be read or processed.
      */
     std::optional<std::string> open_gcode_preview(const boost::filesystem::path& path);
+
+    /**
+     * @brief 2.x "Import Config": opens a new project with the presets and settings of a
+     * configuration file and a copy of the selected project's objects.
+     * Reads PrusaSlicer 2.x .ini files, the configuration stored in G-code (.gcode, .bgcode) and
+     * the .json written by export_config().
+     * @return ID of the new project, or the error message.
+     */
+    tl::expected<Domain::SelectionId, std::string> import_config(const boost::filesystem::path& path);
+
+    /**
+     * @brief 2.x "Export Config": writes the settings of the selected printer, as a 2.x .ini file
+     * or (.json extension) as the 3.x preset metadata and configuration.
+     * @return Error message on failure.
+     */
+    std::optional<std::string> export_config(const boost::filesystem::path& path) const;
     Domain::SelectionId new_project_with_modification(
         const std::function<void(Domain::Project&)>& modifier
     );
@@ -205,7 +221,8 @@ public:
      */
     tl::expected<Domain::SelectionId, std::string> new_project_with_preset(
         const Domain::Preset::SelectedPresetMetadata& preset_metadata,
-        const Domain::ConfigPack& config_pack
+        const Domain::ConfigPack& config_pack,
+        const Domain::Model* model = nullptr
     );
 
     /**

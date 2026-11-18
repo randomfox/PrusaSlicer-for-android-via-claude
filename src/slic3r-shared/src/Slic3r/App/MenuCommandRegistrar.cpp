@@ -2556,6 +2556,39 @@ void MenuCommandRegistrar::register_file_menu_import_commands()
                 }
             )
         )
+        // File -> Import -> Import Config (2.x .ini, G-code, 3.x .json)
+        .register_menu_item(
+            {MenuItemName::FileMenu, MenuItemName::Import, MenuItemName::ImportConfig},
+            std::make_unique<UIItemCommand>(
+                "import-config",
+                [this]()
+                {
+                    IDialogManager::FileCallback callback =
+                        [this](const bool success, const std::vector<boost::filesystem::path>& file_paths)
+                    {
+                        if (!success || file_paths.empty()) {
+                            return;
+                        }
+                        const auto result = m_project_interactor.import_config(file_paths.front());
+                        if (!result) {
+                            AppServices::instance().dialog_manager().show_error_dialog(result.error(), _u8L("Import config"));
+                        }
+                    };
+                    AppServices::instance().dialog_manager().show_file_dialog(
+                        FileDialogType::Open,
+                        _u8L("Select configuration to load:"),
+                        this->default_dialog_folder(),
+                        {},
+                        Wildcards::generate_wildcards(
+                            Wildcards::TypeFlag::Ini | Wildcards::TypeFlag::Json | Wildcards::TypeFlag::GCode
+                                | Wildcards::TypeFlag::BinaryGCode,
+                            Wildcards::TypeFlag::Ini
+                        ),
+                        callback
+                    );
+                }
+            )
+        )
         // File -> Import -> Import ZIP archive
         .register_menu_item(
             {MenuItemName::FileMenu, MenuItemName::Import, MenuItemName::ImportZip},
@@ -2647,6 +2680,38 @@ void MenuCommandRegistrar::register_file_menu_export_commands()
                 UIItemCommandExtraOpts{
                     .enabled = [this]()
                     { return !m_project_interactor.selected_project().model().objects.empty(); }
+                }
+            )
+        )
+        // File -> Export -> Export Config
+        .register_menu_item(
+            {MenuItemName::FileMenu, MenuItemName::Export, MenuItemName::ExportConfig},
+            std::make_unique<UIItemCommand>(
+                "export-config",
+                [this]()
+                {
+                    IDialogManager::FileCallback callback =
+                        [this](const bool success, const std::vector<boost::filesystem::path>& file_paths)
+                    {
+                        if (!success || file_paths.empty()) {
+                            return;
+                        }
+                        boost::filesystem::path path = file_paths.front();
+                        if (path.extension() != ".json" && path.extension() != ".ini") {
+                            path += ".ini";
+                        }
+                        if (const auto error = m_project_interactor.export_config(path)) {
+                            AppServices::instance().dialog_manager().show_error_dialog(*error, _u8L("Export config"));
+                        }
+                    };
+                    AppServices::instance().dialog_manager().show_file_dialog(
+                        FileDialogType::Save,
+                        _u8L("Save configuration as:"),
+                        this->default_dialog_folder(),
+                        "config.ini",
+                        Wildcards::generate_wildcards(Wildcards::TypeFlag::Ini | Wildcards::TypeFlag::Json, Wildcards::TypeFlag::Ini),
+                        callback
+                    );
                 }
             )
         )

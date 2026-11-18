@@ -594,6 +594,47 @@ static void bake_in_legacy_transorms(Loaded3MF& loaded_3mf)
     }
 }
 
+tl::expected<Domain::Preset::SelectedPresetMetadata, std::string> resolve_legacy_preset(
+    LegacyPresetMetadata& legacy_preset,
+    Domain::ConfigPack& config_pack,
+    const Domain::Preset::Bundle& bundle
+)
+{
+    auto result = Preset::IO::load_legacy_preset_metadata(legacy_preset, config_pack, bundle);
+    if (!result.has_value()) {
+        return result;
+    }
+    Domain::Preset::SelectedPresetMetadata& preset_metadata = result.value();
+    const size_t n_tools = preset_metadata.hw_config.tool_count;
+    ASSERT(preset_metadata.tools.size() == n_tools);
+    if (std::holds_alternative<ConfigPackFDM>(config_pack)) {
+        auto& fdm_config = std::get<ConfigPackFDM>(config_pack);
+        if (fdm_config.tool.size() > n_tools) {
+            fdm_config.tool.resize(n_tools);
+            legacy_preset.tools.resize(n_tools);
+            fdm_config.resize_tool_parity_items(n_tools, true);
+        }
+        ASSERT(fdm_config.tool.size() == preset_metadata.tools.size());
+        ASSERT(legacy_preset.tools.size() == preset_metadata.tools.size());
+    }
+
+    const std::size_t slot_count{preset_metadata.hw_config.material_slot_count()};
+    // If there is a single material for a multi slot printer,
+    // copy the first material to all the slots.
+    if (preset_metadata.materials.size() == 1 && slot_count > 1) {
+        Domain::ConfigPackFDM* config_pack_fdm{std::get_if<Domain::ConfigPackFDM>(&config_pack)};
+        while (preset_metadata.materials.size() < slot_count) {
+            preset_metadata.materials.push_back(preset_metadata.materials.front());
+            if (config_pack_fdm) {
+                config_pack_fdm->filament.push_back(config_pack_fdm->filament.front());
+            }
+        }
+    }
+
+    ASSERT(preset_metadata.materials.size() == slot_count);
+    return result;
+}
+
 // The following function is used to load projects from PS 2.x.
 static Loaded3MF load_legacy_project(const std::string& file_path, OptionalPresetBundle bundle)
 {
@@ -624,40 +665,9 @@ static Loaded3MF load_legacy_project(const std::string& file_path, OptionalPrese
     // construct a meaningful SelectedPresetMetadata here by doing something like
     //
     if (bundle.has_value()) {
-        auto result =
-            Preset::IO::load_legacy_preset_metadata(hw_printer, config_pack, bundle->get());
+        auto result = resolve_legacy_preset(hw_printer, config_pack, bundle->get());
         if (result.has_value()) {
-            auto& preset_metadata = loaded_3mf.config_containers_data.front().preset;
-            // FIXME: get relevant metadata from DynamicPrintConfig
-            // preset_metadata.printer.name = config_pack;
-            preset_metadata = result.value();
-            const size_t n_tools = preset_metadata.hw_config.tool_count;
-            ASSERT(preset_metadata.tools.size() == n_tools);
-            if (std::holds_alternative<ConfigPackFDM>(config_pack)) {
-                auto& fdm_config = std::get<ConfigPackFDM>(config_pack);
-                if (fdm_config.tool.size() > n_tools) {
-                    fdm_config.tool.resize(n_tools);
-                    hw_printer.tools.resize(n_tools);
-                    fdm_config.resize_tool_parity_items(n_tools, true);
-                }
-                ASSERT(fdm_config.tool.size() == preset_metadata.tools.size());
-                ASSERT(hw_printer.tools.size() == preset_metadata.tools.size());
-            }
-
-            const std::size_t slot_count{preset_metadata.hw_config.material_slot_count()};
-            // If there is a single material for a multi slot printer,
-            // copy the first material to all the slots.
-            if (preset_metadata.materials.size() == 1 && slot_count > 1) {
-                Domain::ConfigPackFDM* config_pack_fdm{std::get_if<Domain::ConfigPackFDM>(&config_pack)};
-                while (preset_metadata.materials.size() < slot_count) {
-                    preset_metadata.materials.push_back(preset_metadata.materials.front());
-                    if (config_pack_fdm) {
-                        config_pack_fdm->filament.push_back(config_pack_fdm->filament.front());
-                    }
-                }
-            }
-
-            ASSERT(preset_metadata.materials.size() == slot_count);
+            loaded_3mf.config_containers_data.front().preset = std::move(result.value());
         } else
             throw Loaded3MFException(
                 Read3mfIssue(Read3mfIssueType::legacy_loader_failed, result.error())

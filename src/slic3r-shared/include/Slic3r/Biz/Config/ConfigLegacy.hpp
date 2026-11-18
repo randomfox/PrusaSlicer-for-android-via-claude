@@ -39,6 +39,15 @@ struct LegacyPresetMetadata
 // May throw!
 Domain::ConfigPack load_config_from_legacy_file(const std::string& filename);
 
+struct LegacyPresetAndConfig
+{
+    Domain::ConfigPack config;
+    LegacyPresetMetadata metadata;
+};
+// As load_config_from_legacy_file(), plus the printer / preset names stored in the file.
+// May throw!
+LegacyPresetAndConfig load_preset_and_config_from_legacy_file(const std::string& filename);
+
 Domain::ConfigPack convert_dynamic_print_config_to_new(Slic3rLegacy::DynamicPrintConfig& cfg);
 LegacyPresetMetadata extract_legacy_preset_metadata(Slic3rLegacy::DynamicPrintConfig& cfg);
 void fill_config_box_from_legacy(const Slic3rLegacy::DynamicPrintConfig& cfg, Domain::ConfigBox& box);

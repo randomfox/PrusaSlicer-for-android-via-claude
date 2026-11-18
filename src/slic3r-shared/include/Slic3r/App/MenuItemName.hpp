@@ -72,6 +72,7 @@ enum class MenuItemName
     ImportGeometry,
     ImportZip,
     ImportGcodePreview,
+    ImportConfig,
 
     Export,
     ExportGcode,
@@ -79,6 +80,7 @@ enum class MenuItemName
     ExportGcodeToFlash,
     ExportPlateAsStl,
     ExportToolpathsAsObj,
+    ExportConfig,
 
     OnlinePresetUpdate,
     PresetReposManagement,

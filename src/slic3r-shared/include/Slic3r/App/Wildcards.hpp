@@ -25,7 +25,9 @@ enum class TypeFlag : int
     Zip            = 1 << 12,
     Certificate    = 1 << 13,
     AllFiles       = 1 << 14,
-    AllFlags       = 1 << 15
+    Ini            = 1 << 15,
+    Json           = 1 << 16,
+    AllFlags       = 1 << 17
 };
 
 constexpr TypeFlag operator|(TypeFlag lhs, TypeFlag rhs)

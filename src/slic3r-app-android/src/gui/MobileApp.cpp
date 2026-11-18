@@ -1,5 +1,7 @@
 #include "MobileApp.hpp"
 
+#include <boost/algorithm/string/predicate.hpp>
+
 #include "MobileServices.hpp"
 
 #include "Slic3r/App/AppConfig.hpp"
@@ -207,7 +209,15 @@ void MobileApp::open_files(const std::vector<std::string>& paths)
         return;
     }
     std::vector<fs::path> supported;
+    const auto is_config_file = [](const std::string& path) { return boost::algorithm::iends_with(path, ".ini"); };
     for (const std::string& path : paths) {
+        if (is_config_file(path)) {
+            // 2.x config: a new project with its presets and the current objects.
+            if (const auto result = m_project_interactor->import_config(path); !result) {
+                m_host.show_message(IMobileHost::MessageKind::Error, "PrusaSlicer", result.error());
+            }
+            continue;
+        }
         if (Biz::GCodeViewer::is_gcode_file(path)) {
             // G-code viewer: the file opens in a new project's preview.
             if (const auto error = m_project_interactor->open_gcode_preview(path)) {
@@ -224,7 +234,7 @@ void MobileApp::open_files(const std::vector<std::string>& paths)
         }
     }
     if (supported.empty()) {
-        if (std::ranges::any_of(paths, [](const std::string& p) { return !Biz::GCodeViewer::is_gcode_file(p); })) {
+        if (std::ranges::any_of(paths, [&](const std::string& p) { return !Biz::GCodeViewer::is_gcode_file(p) && !is_config_file(p); })) {
             m_host.show_message(IMobileHost::MessageKind::Warning, "PrusaSlicer", "The file type is not supported.");
         }
         return;

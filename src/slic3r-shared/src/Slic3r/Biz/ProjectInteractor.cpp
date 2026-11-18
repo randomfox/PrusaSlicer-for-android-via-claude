@@ -21,6 +21,13 @@
 #include "Slic3r/Biz/UserAccount/ConnectUtils.hpp"
 #include "Slic3r/Biz/Platform/JobManager/JobManager.hpp"
 #include "Slic3r/Biz/FileLoadingLogic.hpp"
+#include <nlohmann/json.hpp>
+#include <boost/nowide/fstream.hpp>
+#include "Slic3r/Version.hpp"
+#include "Slic3r/Biz/Format/ProjectFileConstants.hpp"
+#include "Slic3r/Biz/Config/SelectedPresetJson.hpp"
+#include "Slic3r/Biz/Config/ConfigLoad.hpp"
+#include "Slic3r/Biz/Config/ConfigLegacy.hpp"
 #include "Slic3r/Biz/Scene/BedFactory.hpp"
 #include "Slic3r/Biz/Algorithms/Point.hpp"
 #include "Slic3r/Biz/Algorithms/TriangleSelector.hpp"
@@ -445,10 +452,14 @@ void ProjectInteractor::load_projects(
 
 tl::expected<SelectionId, std::string> ProjectInteractor::new_project_with_preset(
     const SelectedPresetMetadata& preset_metadata,
-    const ConfigPack& config_pack
+    const ConfigPack& config_pack,
+    const Domain::Model* model
 )
 {
     Project project;
+    if (model != nullptr) {
+        project.model() = *model;
+    }
     project.config_containers().emplace_back(std::make_unique<ConfigContainer>());
     ConfigContainer& config_container = *project.config_containers().front();
 
@@ -1023,6 +1034,102 @@ std::optional<std::string> ProjectInteractor::open_gcode_preview(const boost::fi
     }
     new_project();
     m_fdm_result_cache.set_pinned_result(std::move(*result), selected_bed_slicing_id());
+    return std::nullopt;
+}
+
+tl::expected<SelectionId, std::string> ProjectInteractor::import_config(const boost::filesystem::path& path)
+{
+    std::string extension = path.extension().string();
+    boost::algorithm::to_lower(extension);
+
+    Domain::Preset::SelectedPresetMetadata preset_metadata;
+    Domain::ConfigPack config_pack;
+    try {
+        if (extension == ".json") {
+            boost::nowide::ifstream file(path.string());
+            if (!file) {
+                return tl::unexpected{_u8L("The file could not be opened.")};
+            }
+            const nlohmann::ordered_json json = nlohmann::ordered_json::parse(file);
+            tl::expected<Config::PresetAndConfig, std::string> loaded = Config::load_preset_and_config(json);
+            if (!loaded) {
+                return tl::unexpected{loaded.error()};
+            }
+            preset_metadata = std::move(loaded->preset_metadata);
+            config_pack     = std::move(loaded->config_pack);
+        } else {
+            LegacyPresetAndConfig legacy = load_preset_and_config_from_legacy_file(path.string());
+            tl::expected<Domain::Preset::SelectedPresetMetadata, std::string> resolved =
+                FileLoadingLogic::resolve_legacy_preset(legacy.metadata, legacy.config, m_workbench.preset_bundle());
+            if (!resolved) {
+                return tl::unexpected{resolved.error()};
+            }
+            preset_metadata = std::move(*resolved);
+            config_pack     = std::move(legacy.config);
+        }
+    } catch (const std::exception& e) {
+        return tl::unexpected{fmt::format("{}\n{}", _u8L("The configuration could not be read."), e.what())};
+    }
+
+    // Keep the objects: the new project gets a copy of them (with new IDs).
+    const Domain::Model model = Domain::Model::make_clone(selected_project().model());
+    return new_project_with_preset(preset_metadata, config_pack, &model);
+}
+
+std::optional<std::string> ProjectInteractor::export_config(const boost::filesystem::path& path) const
+{
+    const Domain::Project& project = selected_project();
+    const Domain::ConfigContainer* config_container =
+        project.find_config_container(m_scene_interactor.bed_selection().last_selected_bed().config_container_id);
+    if (config_container == nullptr && !project.config_containers().empty()) {
+        config_container = project.config_containers().front().get();
+    }
+    if (config_container == nullptr) {
+        return _u8L("There is no printer to export the configuration of.");
+    }
+    const Domain::Preset::SelectedPreset& selected_preset = config_container->selected_preset();
+    const Domain::ConfigPack config_pack = config_container->build_print_config();
+
+    std::string extension = path.extension().string();
+    boost::algorithm::to_lower(extension);
+    std::string text;
+    if (extension == ".json") {
+        using Format::ProjectFileConstants::CONFIGURATION;
+        using Format::ProjectFileConstants::PRESET_METADATA;
+        nlohmann::ordered_json json;
+        json[PRESET_METADATA] = nlohmann::ordered_json(selected_preset.metadata());
+        json[CONFIGURATION]   = std::visit([](const auto& pack) { return Config::to_json(pack); }, config_pack);
+        text = json.dump(2);
+    } else {
+        // The preset names, as 2.x wrote them (import finds the presets by them).
+        const Domain::Preset::SelectedPresetMetadata metadata = selected_preset.metadata();
+        const bool sla = selected_preset.hw_config.technology == Domain::PrinterTechnology::SLA;
+        std::string materials;
+        for (const auto& material : metadata.materials) {
+            materials += (materials.empty() ? "" : ";") + ("\"" + material.name + "\"");
+        }
+        const std::map<std::string, std::string> names{
+            {"printer_settings_id", metadata.printer.name},
+            {sla ? "sla_print_settings_id" : "print_settings_id", metadata.print.name},
+            {sla ? "sla_material_settings_id" : "filament_settings_id",
+             sla && !metadata.materials.empty() ? metadata.materials.front().name : materials},
+        };
+        std::istringstream lines(serialize_as_legacy_config(config_pack, selected_preset.hw_config));
+        text = fmt::format("# generated by {} {}\n", SLIC3R_APP_NAME, SLIC3R_VERSION);
+        for (std::string line; std::getline(lines, line);) {
+            const std::string key = boost::algorithm::trim_copy(line.substr(0, line.find('=')));
+            if (const auto it = names.find(key); it != names.end()) {
+                line = key + " = " + it->second;
+            }
+            text += line + "\n";
+        }
+    }
+    boost::nowide::ofstream file(path.string(), std::ios::binary);
+    file << text;
+    file.close();
+    if (!file) {
+        return _u8L("The configuration could not be written.");
+    }
     return std::nullopt;
 }
 

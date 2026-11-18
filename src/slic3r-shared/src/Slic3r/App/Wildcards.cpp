@@ -38,6 +38,8 @@ const std::map<TypeFlag, std::string>& get_wildcard_map()
         {TypeFlag::AllTextures,    "Texture files|*.png;*.svg"},
         {TypeFlag::Certificate,    "Certificate files (*.crt, *.pem)|*.crt;*.pem"},
         {TypeFlag::AllFiles,       "All files|*.*"},
+        {TypeFlag::Ini,            "INI files (*.ini)|*.ini;*.INI"},
+        {TypeFlag::Json,           "JSON files (*.json)|*.json;*.JSON"},
     };
     return map;
 }

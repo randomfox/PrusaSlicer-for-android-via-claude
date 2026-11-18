@@ -79,6 +79,10 @@ std::string MenuBuilder::item_name_translated(UniversalMenuItemName menu_item_na
                     return Biz::_u8L("Import STL/3MF");
                 case MenuItemName::ImportZip:
                     return Biz::_u8L("Import ZIP archive");
+                case MenuItemName::ImportConfig:
+                    return Biz::_u8L("Import config") + "...";
+                case MenuItemName::ExportConfig:
+                    return Biz::_u8L("Export config") + "...";
                 case MenuItemName::ImportGcodePreview:
                     return Biz::_u8L("G-code preview") + "...";
                 case MenuItemName::JumpToValue:
