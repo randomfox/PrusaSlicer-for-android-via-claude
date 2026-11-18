@@ -72,5 +72,8 @@ if (ANDROID)
     install(TARGETS prusaslicer-android-cli RUNTIME DESTINATION bin)
 else ()
     add_executable(mobile-headless test/MobileHeadless.cpp)
+    # Material preset sharing check (not part of the default build).
+    add_executable(preset-eval-check EXCLUDE_FROM_ALL test/PresetEvalCheck.cpp)
+    target_link_libraries(preset-eval-check PRIVATE slic3r-shared)
     target_link_libraries(mobile-headless PRIVATE slic3r-mobile-gui stb_image EGL GLESv2)
 endif ()

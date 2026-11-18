@@ -4044,7 +4044,7 @@ PresetInteractor::get_material_preset_unsafe(
     if (printer_preset != nullptr) {
         const auto* print = find_by_id(printer_preset->prints, print_preset_id);
         if (print != nullptr) {
-            const auto* material = find_by_id(print->materials[slot_index], material_preset_id);
+            const auto* material = find_by_id(print->materials[slot_index].list(), material_preset_id);
             if (material != nullptr) {
                 return {&material->preset, false};
             }
