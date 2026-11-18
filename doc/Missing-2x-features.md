@@ -34,7 +34,7 @@ Status: ✅ done in this branch · ⏳ in progress · ☐ open
 | ✅ | Import / export config (.ini), load config from G-code | File > Import > Import config (.ini, .gcode, .bgcode, 3.x .json) opens a new project with those presets and a copy of the objects; File > Export > Export config (.ini or .json). On Android, opening an .ini imports it |
 | ☐ | Custom G-code editor with placeholder list | plain text fields |
 | ☐ | Optimize orientation | algorithm not ported |
-| ☐ | AMF import | |
+| ✅ | AMF import | plain and zipped, units, part/modifier/negative/blocker/enforcer volumes, constellation instances; per-object settings are not read |
 | ☐ | Print host upload queue window | notifications only |
 | ✅ | Bonjour "Browse" for printers | search button next to the host field (not tested: no printer on the test network) |
 | ☐ | 2.x profiles: translate `compatible_*_condition` | pinned to one printer model |

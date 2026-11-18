@@ -1,4 +1,5 @@
 #include "Slic3r/Biz/FileLoadingLogic.hpp"
+#include "Slic3r/Biz/Format/AMF.hpp"
 #include "Slic3r/Biz/Format/STL.hpp"
 #include "Slic3r/Biz/Format/SVG.hpp"
 #include "Slic3r/Biz/Format/OBJ.hpp"
@@ -740,6 +741,7 @@ static tl::expected<ReturnData, FileLoadError> read_data_from_file(
     const bool is_3mf = boost::algorithm::iends_with(path_str, ".3mf");
     const bool is_obj = boost::algorithm::iends_with(path_str, ".obj");
     const bool is_svg = boost::algorithm::iends_with(path_str, ".svg");
+    const bool is_amf = boost::algorithm::iends_with(path_str, ".amf") || boost::algorithm::iends_with(path_str, ".amf.xml");
     const bool is_step = boost::algorithm::iends_with(path_str, ".step") ||
                          boost::algorithm::iends_with(path_str, ".stp");
     if (is_stl || is_obj) {
@@ -840,6 +842,13 @@ static tl::expected<ReturnData, FileLoadError> read_data_from_file(
         } else {
             return tl::make_unexpected(FileLoadError::error(out.error()));
         }
+    } else if (is_amf) {
+        auto result = Biz::load_amf(path_str);
+        if (!result) {
+            return tl::make_unexpected(FileLoadError::error(result.error()));
+        }
+        ret.model = std::move(result.value());
+        return ret;
     } else if (is_svg) {
         auto result = Biz::load_svg(path_str);
         if (!result) {
@@ -1316,6 +1325,7 @@ const std::vector<std::string>& get_import_extensions()
         ".3mf",
         ".stl",
         ".obj",
+        ".amf",
         ".svg",
         ".step", ".stp"
     };

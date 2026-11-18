@@ -1217,7 +1217,9 @@ set(SLIC3R_SHARED_FILES
         src/Slic3r/Biz/Format/STL.cpp
         include/Slic3r/Biz/Format/SVG.hpp
         src/Slic3r/Biz/Format/SVG.cpp
+        src/Slic3r/Biz/Format/AMF.cpp
         src/Slic3r/Biz/Format/OBJ.cpp
+        include/Slic3r/Biz/Format/AMF.hpp
         include/Slic3r/Biz/Format/OBJ.hpp
         src/Slic3r/Biz/Format/objparser.cpp
         src/Slic3r/Biz/Format/objparser.hpp
