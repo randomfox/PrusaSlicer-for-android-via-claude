@@ -1022,7 +1022,7 @@ std::optional<std::string> ProjectInteractor::open_gcode_preview(const boost::fi
         return _u8L("The file contains no moves to preview.");
     }
     new_project();
-    m_fdm_result_cache.on_fdm_result_changed(std::move(*result), selected_bed_slicing_id());
+    m_fdm_result_cache.set_pinned_result(std::move(*result), selected_bed_slicing_id());
     return std::nullopt;
 }
 

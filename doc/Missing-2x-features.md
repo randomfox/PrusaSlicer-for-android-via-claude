@@ -24,7 +24,7 @@ Status: ✅ done in this branch · ⏳ in progress · ☐ open
 ## Batch 2: medium
 | | Feature | Notes |
 |---|---|---|
-| ⏳ | Standalone G-code viewer (open .gcode/.bgcode) | file loads and is processed (settings from the file, .bgcode converted), opens in a new project's Preview; toolpaths not shown yet (the injected result is probably cleared by the empty project's slicing) |
+| ✅ | Standalone G-code viewer (open .gcode/.bgcode) | File > Import > G-code preview; on Android: open a G-code file. Settings from the file, .bgcode converted |
 | ✅ | Sequential printing: extruder clearance collision check | missing in `Print::validate` |
 | ☐ | Sequential arrange (`libseqarrange`) | not built |
 | ☐ | Tool changes / extruder sequence on the layer slider (multi-tool) | disabled upstream on purpose (`ysFIXME-spe3494`, an internal Prusa ticket); slicing still supports the modes |

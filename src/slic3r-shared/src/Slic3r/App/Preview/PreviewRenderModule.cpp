@@ -528,6 +528,13 @@ void PreviewRenderModule::on_activated()
     update_bed_instances();
     update_shells();
     update_viewer();
+    // A result that arrived while the preview was not shown (e.g. a G-code file opened in the
+    // G-code viewer) is loaded now.
+    if (m_viewer == &m_fdm_viewer && !m_viewer->has_data()
+        && !m_project_interactor.scene_interactor().bed_selection().empty())
+    {
+        update_fdm_viewer_data(m_project_interactor.selected_bed_slicing_id());
+    }
     update_scene_aabb();
 
     if (m_sidebar_auto_reslice->is_enabled()) {

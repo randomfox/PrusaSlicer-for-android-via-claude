@@ -17,6 +17,12 @@ void FDMResultCache::on_fdm_result_changed(
     const Domain::SlicingId id
 )
 {
+    if (m_pinned.contains(id)) {
+        if (result.const_moves()->empty()) {
+            return; // keep the previewed G-code file
+        }
+        m_pinned.erase(id);
+    }
     m_results[id] = std::move(result);
 
     if (m_results[id].const_moves()->empty()) {
@@ -32,6 +38,15 @@ void FDMResultCache::on_fdm_result_changed(
     invoke_listeners<IFDMResultCacheChangedListener>([&](auto* listener) {
         listener->on_fdm_result_cache_changed(id);
     });
+}
+
+void FDMResultCache::set_pinned_result(Slicing::FDMResult&& result, const Domain::SlicingId id)
+{
+    m_pinned.erase(id);
+    on_fdm_result_changed(std::move(result), id);
+    if (m_results.contains(id)) {
+        m_pinned.insert(id);
+    }
 }
 
 std::size_t FDMResultCache::memsize() const

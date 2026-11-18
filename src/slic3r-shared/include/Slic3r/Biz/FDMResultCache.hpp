@@ -1,5 +1,7 @@
 #pragma once
 
+#include <set>
+
 #include <map>
 #include <functional>
 #include "Slic3r/Biz/Slicing/SlicingInteractor.hpp"
@@ -22,6 +24,13 @@ class FDMResultCache :
 public:
     std::optional<FDMResultRef> get_result(const Domain::SlicingId id) const;
 
+    /**
+     * @brief G-code viewer: shows a result that does not come from slicing (a G-code file).
+     * Empty results from slicing (the bed has nothing to slice) do not replace it; a real
+     * slicing result does.
+     */
+    void set_pinned_result(Slicing::FDMResult&& result, const Domain::SlicingId id);
+
     void on_fdm_result_changed(
         Slicing::FDMResult&& result,
         const Domain::SlicingId id
@@ -29,6 +38,7 @@ public:
 
 private:
     std::map<Domain::SlicingId, Slicing::FDMResult> m_results;
+    std::set<Domain::SlicingId> m_pinned;
 
     std::size_t memsize() const;
 };
