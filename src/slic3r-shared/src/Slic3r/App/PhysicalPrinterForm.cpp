@@ -6,6 +6,8 @@
 #include "Slic3r/Biz/PhysicalPrinter/PhysicalPrinterInteractor.hpp"
 #include "Slic3r/Biz/I18N/I18N.hpp"
 #include "Slic3r/Biz/Network/IHttp.hpp"
+#include "Slic3r/Biz/Network/Bonjour.hpp"
+#include "Slic3r/Biz/Platform/PlatformServices.hpp"
 
 #include "Slic3r/App/AppServices.hpp"
 #include "Slic3r/App/AppConfig.hpp"
@@ -27,6 +29,8 @@
 #include <fmt/format.h>
 
 #include <memory>
+#include <mutex>
+#include <set>
 #include <variant>
 #include <vector>
 
@@ -384,6 +388,18 @@ void PhysicalPrinterForm::build_form()
             "in the following format: https://username:password@your-octopi-address/"
         )
     );
+    // 2.x "Browse": find printers on the local network (Bonjour / mDNS).
+    if (Item* host_row = dynamic_cast<Item*>(m_host->parent_item())) {
+        m_host_browse_button = host_row->emplace_back<LayoutButton>(
+            std::string{},
+            Render::Icon::Search,
+            // TRN Tooltip of the button that looks for printers on the local network.
+            _u8L("Find printers on the local network")
+        );
+        m_host_browse_button->set_min_width(ICON_BUTTON_SIZE);
+        m_host_browse_button->set_min_height(ICON_BUTTON_SIZE);
+        m_host_browse_button->callbacks().action = [this] { browse_network_printers(); };
+    }
 
     // Authorization type combo (options depend on the host type; populated on load)
     {
@@ -752,6 +768,66 @@ void PhysicalPrinterForm::clear_test_status()
     m_test_status_detail->set_text(std::string{});
     m_test_status_detail->set_visible(false);
     m_test_status_row->set_visible(false);
+}
+
+void PhysicalPrinterForm::browse_network_printers()
+{
+    if (m_bonjour_running) {
+        return;
+    }
+    m_bonjour_running = true;
+    m_host_browse_button->set_enabled(false);
+
+    // The lookup runs on a background thread; the replies are collected there and handed to the
+    // main thread when it completes (the form may be gone by then).
+    struct Lookup
+    {
+        std::mutex mutex;
+        std::set<Biz::PrintHost::BonjourReply> replies;
+    };
+    auto lookup = std::make_shared<Lookup>();
+    std::weak_ptr<bool> alive = m_alive;
+    m_bonjour = Biz::PrintHost::Bonjour("octoprint")
+        .set_txt_keys({"version", "model"})
+        .set_retries(3)
+        .set_timeout(4)
+        .on_reply([lookup](Biz::PrintHost::BonjourReply&& reply) {
+            std::lock_guard lock(lookup->mutex);
+            lookup->replies.insert(std::move(reply));
+        })
+        .on_complete([this, lookup, alive]() {
+            Biz::Platform::PlatformServices::instance().main_thread_dispatcher().dispatch_on_main_thread([this, lookup, alive]() {
+                if (alive.expired()) {
+                    return;
+                }
+                m_bonjour_running = false;
+                m_bonjour.reset();
+                m_host_browse_button->set_enabled(true);
+                std::vector<std::string> addresses;
+                {
+                    std::lock_guard lock(lookup->mutex);
+                    for (const Biz::PrintHost::BonjourReply& reply : lookup->replies) {
+                        addresses.push_back(reply.full_address);
+                    }
+                }
+                IDialogManager& dialogs = AppServices::instance().dialog_manager();
+                if (addresses.empty()) {
+                    dialogs.show_info_dialog(
+                        _u8L("No printers were found on the local network. Make sure the printer is on and connected to the same network."),
+                        _u8L("Find printers")
+                    );
+                    return;
+                }
+                const std::string chosen = dialogs.show_combo_dialog(_u8L("Find printers"), _u8L("Printers found on the local network:"), addresses);
+                if (!chosen.empty()) {
+                    m_host->set_text(chosen);
+                    if (m_host->callbacks().text_edited) {
+                        m_host->callbacks().text_edited();
+                    }
+                }
+            });
+        })
+        .lookup();
 }
 
 void PhysicalPrinterForm::browse_ca_file()

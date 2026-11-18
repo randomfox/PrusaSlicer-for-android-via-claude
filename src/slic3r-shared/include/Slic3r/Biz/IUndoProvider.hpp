@@ -19,6 +19,7 @@ enum class UndoSnapshotType
     SetScale,
     RevertScale,
     Mirror,
+    EditCustomGCodes,
     ScaleToPrintVolume,
     PlaceOnFace,
     Arrange,

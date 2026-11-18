@@ -25,6 +25,7 @@
 //                          (fields not given keep their value, '_' in values = space;
 //                          without a form command: button 0)
 //   set_print_int KEY N    change an integer option of the selected print preset
+//   set_print_bool KEY 0|1 change a boolean option of the selected print preset
 //   set_print_script CMD   set the print preset's post-processing script (rest of the line)
 //   select_print INDEX     select a print preset like the sidebar combo box does
 //   save_print             save the selected print preset (asks for a name)
@@ -34,6 +35,7 @@
 //   compare [material]     "Compare presets" (print presets, or material presets)
 //   cmd NAME               run a plater command / menu item (e.g. mirror-x)
 //   select_all             select all objects (Ctrl+A)
+//   status                 print the slicing status and errors of the selected bed
 //   dump_objects           print the objects and their instances (position, scale)
 //   text STRING            type text
 //   key CODE               press and release an Android key code
@@ -48,6 +50,7 @@
 #include "Slic3r/Log.hpp"
 #include "Slic3r/Biz/ProjectInteractor.hpp"
 #include "Slic3r/App/ResultExport/ExportActions.hpp"
+#include "Slic3r/App/DisplayStrings.hpp"
 #include "Slic3r/Biz/Preset/PresetInteractor.hpp"
 #include "Slic3r/Biz/Preset/PresetSelectionCheck.hpp"
 
@@ -368,6 +371,11 @@ int main(int argc, char** argv)
                 Slic3r::Domain::FDMConfigLocation::Print, 0, key, [value](Slic3r::Domain::ConfigItem& item) { item.set<int>(value); });
             std::printf("[headless] %s\n", print_state(app).c_str());
             frames(3);
+        } else if (cmd == "set_print_bool") {
+            std::string key; int value = 0; in >> key >> value;
+            app.project_interactor().preset_interactor().set_preset_value(
+                Slic3r::Domain::FDMConfigLocation::Print, 0, key, [value](Slic3r::Domain::ConfigItem& item) { item.set<bool>(value != 0); });
+            frames(3);
         } else if (cmd == "set_print_script") {
             std::string rest; std::getline(in, rest);
             if (!rest.empty() && rest[0] == ' ') rest.erase(0, 1);
@@ -424,6 +432,17 @@ int main(int argc, char** argv)
         } else if (cmd == "select_all") {
             std::printf("[headless] select all: %s\n", app.execute_command("select-all") ? "ok" : "unavailable");
             frames(3);
+        } else if (cmd == "status") {
+            auto& pi       = app.project_interactor();
+            const auto id  = pi.selected_bed_slicing_id();
+            if (const auto status = pi.status_cache().get_status(id)) {
+                std::printf("[headless] status code %d, %zu errors, %zu warnings\n", int(status->code), status->errors.size(), status->warrnings.size());
+                for (const auto& error : status->errors) {
+                    std::printf("[headless]   error: %s\n", Slic3r::App::to_display_string(error, pi.selected_project()).c_str());
+                }
+            } else {
+                std::printf("[headless] no status\n");
+            }
         } else if (cmd == "dump_objects") {
             for (const auto* object : app.project_interactor().selected_project().model().objects) {
                 const auto& bb = Slic3r::Biz::Algorithms::ModelObject::bounding_box_exact(*object);

@@ -8,6 +8,7 @@
 #include "libslic3r/Print.hpp"
 #include "libslic3r/Brim.hpp"
 #include "libslic3r/ClipperUtils.hpp"
+#include "Slic3r/Biz/Algorithms/ModelObject.hpp"
 #include "libslic3r/Extruder.hpp"
 #include "libslic3r/Flow.hpp"
 #include "libslic3r/GCode/Thumbnails.hpp"
@@ -745,6 +746,35 @@ DONE:;
         ASSERT(m_objects.size() > 0);
         if (m_objects.front()->all_regions().size() > 1) {
             errors.push_back(Error{ErrorCode::SpiralVaseMultipleMaterials, {"spiral_vase"}});
+        }
+    }
+
+    // Sequential printing ("complete objects"): the print head must not hit an object printed
+    // before (PrusaSlicer 2.x checks): footprints grown by the extruder clearance radius must
+    // not overlap, and all but the last object must be lower than the extruder clearance height.
+    if (m_config.get<bool>("complete_objects")) {
+        const double clearance_radius = m_config.get<double>("extruder_clearance_radius");
+        const double clearance_height = m_config.get<double>("extruder_clearance_height");
+        Polygons placed;
+        bool collision = false;
+        std::vector<Domain::coord_t> heights;
+        for (const PrintObject* object : m_objects) {
+            for (const PrintInstance& instance : object->instances()) {
+                const Polygon hull = Biz::Algorithms::ModelObject::convex_hull_2d(*object->model_object(), instance.model_instance.get_matrix());
+                const Polygons grown = offset(hull, float(scale_(0.5 * clearance_radius - 0.01)), ClipperLib::jtRound, float(scale_(0.1)));
+                if (!collision && !placed.empty() && !intersection(placed, grown).empty()) {
+                    collision = true;
+                }
+                placed.insert(placed.end(), grown.begin(), grown.end());
+                heights.push_back(object->height());
+            }
+        }
+        if (collision) {
+            errors.push_back(Error{ErrorCode::SequentialPrintClearance, {"complete_objects", "extruder_clearance_radius"}});
+        }
+        std::sort(heights.begin(), heights.end());
+        if (heights.size() > 1 && heights[heights.size() - 2] > scale_(clearance_height)) {
+            errors.push_back(Error{ErrorCode::SequentialPrintHeight, {"complete_objects", "extruder_clearance_height"}});
         }
     }
 

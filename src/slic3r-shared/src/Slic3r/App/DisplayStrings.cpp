@@ -87,6 +87,10 @@ std::string to_display_string(Biz::Slicing::ErrorCode code)
         );
     case ErrorCode::WipeTowerVolumetricE:
         return _u8L("The wipe tower currently does not support volumetric E (use_volumetric_e=0).");
+    case ErrorCode::SequentialPrintClearance:
+        return _u8L("Some objects are too close; your extruder will collide with them.");
+    case ErrorCode::SequentialPrintHeight:
+        return _u8L("Some objects are too tall and cannot be printed without extruder collisions.");
     case ErrorCode::WipeTowerSequentialPrint:
         return _u8L(
             "The wipe tower is currently not supported for multimaterial sequential prints."

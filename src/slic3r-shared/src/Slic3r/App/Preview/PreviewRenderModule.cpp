@@ -1299,6 +1299,7 @@ void PreviewRenderModule::on_slider_layers_ticks_changed()
         slicing_id,
         m_slider_layers->ticks_values()
     );
+    m_project_interactor.undo_provider().take_snapshot(Biz::UndoSnapshotType::EditCustomGCodes);
 }
 
 bool PreviewRenderModule::on_slider_layers_auto_color_change()

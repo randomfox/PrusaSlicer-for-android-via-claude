@@ -17,6 +17,10 @@ namespace Slic3r::Biz {
 class ProjectInteractor;
 } // namespace Slic3r::Biz
 
+namespace Slic3r::Biz::PrintHost {
+class Bonjour;
+} // namespace Slic3r::Biz::PrintHost
+
 namespace Slic3r::Biz::PhysicalPrinter {
 class PhysicalPrinterInteractor;
 struct PrintHostTestResult;
@@ -69,6 +73,7 @@ private:
     void clear_test_status();
 
     void browse_ca_file();
+    void browse_network_printers();
 
     void load_connection_fields(const Biz::PhysicalPrinter::PrinterUpload& upload);
     void rebuild_auth_type_options(Domain::PrintHostAuthType desired);
@@ -123,6 +128,11 @@ private:
     Yoga::Item* m_ca_group{nullptr};
 
     Yoga::LayoutButton* m_ca_file_browse_button{nullptr};
+    Yoga::LayoutButton* m_host_browse_button{nullptr};
+    std::shared_ptr<Biz::PrintHost::Bonjour> m_bonjour;
+    bool m_bonjour_running{false};
+    // Expires with the form (guards the main thread callback of the lookup).
+    std::shared_ptr<bool> m_alive{std::make_shared<bool>(true)};
 
     Yoga::Item* m_test_status_row{nullptr};
     Yoga::Text* m_test_status{nullptr};

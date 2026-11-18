@@ -14,6 +14,7 @@
 #include <cereal/types/string.hpp>
 #include <cereal/types/vector.hpp>
 #include <cereal/types/optional.hpp>
+#include <cereal/types/common.hpp>
 
 using Slic3r::App::Undo::Chunk;
 using Slic3r::App::Undo::SerializedData;
@@ -34,6 +35,19 @@ struct DeserializationContext
 
 namespace cereal {
 
+// Color changes, pauses and custom G-codes of a bed (layer slider ticks).
+template <class Archive>
+void serialize(Archive& archive, Slic3r::Domain::CustomGCode::Item& item)
+{
+    archive(item.print_z, item.type, item.extruder, item.color, item.extra);
+}
+
+template <class Archive>
+void serialize(Archive& archive, Slic3r::Domain::CustomGCode::Info& info)
+{
+    archive(info.mode, info.gcodes);
+}
+
 template <class Archive>
 void save(Archive& archive, const Slic3r::Domain::BedInstance& bed_instance)
 {
@@ -42,7 +56,7 @@ void save(Archive& archive, const Slic3r::Domain::BedInstance& bed_instance)
         bed_instance.transformation,
         bed_instance.print_volume_enabled,
         bed_instance.wipe_tower,
-        // bed_instance.custom_gcode TODO
+        bed_instance.custom_gcode,
         bed_instance.index()
     );
 }
@@ -54,8 +68,8 @@ void load(Archive& archive, Slic3r::Domain::BedInstance& bed_instance)
     archive(
         bed_instance.transformation,
         bed_instance.print_volume_enabled,
-        bed_instance.wipe_tower
-        // bed_instance.custom_gcode TODO
+        bed_instance.wipe_tower,
+        bed_instance.custom_gcode
     );
 
     std::size_t index{};

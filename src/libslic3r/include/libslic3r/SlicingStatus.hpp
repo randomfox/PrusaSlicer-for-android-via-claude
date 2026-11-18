@@ -55,6 +55,8 @@ enum class ErrorCode
     AvoidCrossingPerimetersAndAvoidCurledOverhangs,
     SpiralVaseMultipleObjects,
     SpiralVaseMultipleMaterials,
+    SequentialPrintClearance,
+    SequentialPrintHeight,
     MachineLimitsWithKlipper,
     ShrinkageCompensationExceedsHeight,
     ObjectExceedsHeight,
