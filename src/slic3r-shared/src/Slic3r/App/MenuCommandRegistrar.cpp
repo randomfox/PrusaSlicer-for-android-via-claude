@@ -2329,6 +2329,38 @@ void MenuCommandRegistrar::register_file_menu_import_commands()
                 }
             )
         )
+        // File -> Import -> G-code preview (2.x G-code viewer)
+        .register_menu_item(
+            {MenuItemName::FileMenu, MenuItemName::Import, MenuItemName::ImportGcodePreview},
+            std::make_unique<UIItemCommand>(
+                "import-gcode-preview",
+                [this]()
+                {
+                    IDialogManager::FileCallback callback =
+                        [this](const bool success, const std::vector<boost::filesystem::path>& file_paths)
+                    {
+                        if (!success || file_paths.empty()) {
+                            return;
+                        }
+                        if (const auto error = m_project_interactor.open_gcode_preview(file_paths.front())) {
+                            AppServices::instance().dialog_manager().show_error_dialog(*error, _u8L("G-code preview"));
+                            return;
+                        }
+                        m_navigator.navigate_to_module_type(Render::ModuleType::Preview);
+                    };
+                    AppServices::instance().dialog_manager().show_file_dialog(
+                        FileDialogType::Open,
+                        _u8L("Open a G-code file to preview"),
+                        this->default_dialog_folder(),
+                        {},
+                        Wildcards::generate_wildcards(
+                            Wildcards::TypeFlag::GCode | Wildcards::TypeFlag::BinaryGCode, Wildcards::TypeFlag::GCode
+                        ),
+                        callback
+                    );
+                }
+            )
+        )
         // File -> Import -> Import ZIP archive
         .register_menu_item(
             {MenuItemName::FileMenu, MenuItemName::Import, MenuItemName::ImportZip},

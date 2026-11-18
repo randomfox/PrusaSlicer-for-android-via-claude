@@ -2,6 +2,7 @@
 #include <boost/algorithm/string/case_conv.hpp>
 #include "Slic3r/Biz/Config/ConfigSerialize.hpp"
 #include "Slic3r/Biz/ProjectInteractor.hpp"
+#include "Slic3r/Biz/GCodeViewer/GCodeFileLoader.hpp"
 
 #include <Slic3r/Assert.hpp>
 #include <Slic3r/Domain/Workbench.hpp>
@@ -1010,6 +1011,20 @@ void set_post_process_scripts(
     env.emplace_back("SLIC3R_PP_OUTPUT_NAME", job_data.dest_path.string());
 }
 } // namespace
+
+std::optional<std::string> ProjectInteractor::open_gcode_preview(const boost::filesystem::path& path)
+{
+    tl::expected<Slicing::FDMResult, std::string> result = GCodeViewer::load_gcode_file(path);
+    if (!result) {
+        return result.error();
+    }
+    if (result->const_moves()->empty()) {
+        return _u8L("The file contains no moves to preview.");
+    }
+    new_project();
+    m_fdm_result_cache.on_fdm_result_changed(std::move(*result), selected_bed_slicing_id());
+    return std::nullopt;
+}
 
 void ProjectInteractor::do_result_export_inner(const Domain::SlicingId id, PhysicalPrinter::PhysicalPrinterConfig&& print_host_config, PrintHost::PrintHostJobData&& job_data)
 {

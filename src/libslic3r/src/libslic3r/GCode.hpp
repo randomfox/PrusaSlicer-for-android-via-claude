@@ -77,6 +77,14 @@ struct LayerResult {
 };
 
 namespace GCode {
+/**
+ * G-code processor settings for the given print configuration: used when exporting G-code and
+ * by the G-code viewer (to process a G-code file with the configuration stored in it).
+ */
+Biz::libpgcode::ProcessorConfig processor_config(const PrintConfigView& config, const Domain::Preset::HwPrinterConfig& hw_printer_config);
+} // namespace GCode
+
+namespace GCode {
 struct PrintObjectInstance
 {
     const PrintObject *print_object = nullptr;

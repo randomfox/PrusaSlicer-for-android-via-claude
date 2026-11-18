@@ -11,6 +11,9 @@
 #include "Slic3r/App/Mouse3D/Mouse3DController.hpp"
 #include "Slic3r/App/Navigator.hpp"
 #include "Slic3r/App/Plater/PlaterRenderModule.hpp"
+#include "Slic3r/Biz/GCodeViewer/GCodeFileLoader.hpp"
+
+#include <algorithm>
 #include "Slic3r/App/Plater/ThumbnailImageGenerator.hpp"
 #include "Slic3r/App/PopNotification/PopNotificationCenter.hpp"
 #include "Slic3r/App/PresetUpdater/PresetUpdaterController.hpp"
@@ -201,6 +204,15 @@ void MobileApp::open_files(const std::vector<std::string>& paths)
     }
     std::vector<fs::path> supported;
     for (const std::string& path : paths) {
+        if (Biz::GCodeViewer::is_gcode_file(path)) {
+            // G-code viewer: the file opens in a new project's preview.
+            if (const auto error = m_project_interactor->open_gcode_preview(path)) {
+                m_host.show_message(IMobileHost::MessageKind::Error, "PrusaSlicer", *error);
+            } else {
+                AppServices::instance().navigator().navigate_to_module_type(Render::ModuleType::Preview);
+            }
+            continue;
+        }
         if (Biz::FileLoadingLogic::is_supported_file(path) || Biz::FileLoadingLogic::is_archive_file(path)) {
             supported.emplace_back(path);
         } else {
@@ -208,7 +220,9 @@ void MobileApp::open_files(const std::vector<std::string>& paths)
         }
     }
     if (supported.empty()) {
-        m_host.show_message(IMobileHost::MessageKind::Warning, "PrusaSlicer", "The file type is not supported.");
+        if (std::ranges::any_of(paths, [](const std::string& p) { return !Biz::GCodeViewer::is_gcode_file(p); })) {
+            m_host.show_message(IMobileHost::MessageKind::Warning, "PrusaSlicer", "The file type is not supported.");
+        }
         return;
     }
     const bool single_project = supported.size() == 1 && Biz::FileLoadingLogic::is_project_file(supported.front().string());

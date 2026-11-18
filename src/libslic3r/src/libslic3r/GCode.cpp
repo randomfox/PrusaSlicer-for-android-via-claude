@@ -665,6 +665,13 @@ namespace DoExport {
 
 } // namespace DoExport
 
+namespace GCode {
+Biz::libpgcode::ProcessorConfig processor_config(const PrintConfigView& config, const Domain::Preset::HwPrinterConfig& hw_printer_config)
+{
+    return DoExport::populate_processor_config(config, hw_printer_config);
+}
+} // namespace GCode
+
 GCodeGenerator::GCodeGenerator(const Print* print) :
     m_origin(Vec2d::Zero()),
     m_extruder_offset(print->config().get<std::vector<Vec2d>>("extruder_offset")),

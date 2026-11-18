@@ -1017,6 +1017,7 @@ set(SLIC3R_SHARED_FILES
         src/Slic3r/Biz/ResultExport/ResultExportInteractor.cpp
         src/Slic3r/Biz/ResultExport/ResultExportDataFinalizer.cpp
         src/Slic3r/Biz/ResultExport/PostProcessScripts.cpp
+        src/Slic3r/Biz/GCodeViewer/GCodeFileLoader.cpp
         src/Slic3r/Biz/ResultExport/SLA/SL1.cpp
         src/Slic3r/Biz/ResultExport/SLA/Zipper.cpp
 

@@ -71,6 +71,7 @@ enum class MenuItemName
     Import,
     ImportGeometry,
     ImportZip,
+    ImportGcodePreview,
 
     Export,
     ExportGcode,

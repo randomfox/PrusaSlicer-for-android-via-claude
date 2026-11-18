@@ -187,6 +187,13 @@ public:
      * @return Returns ID of newly created project
      */
     Domain::SelectionId new_project();
+
+    /**
+     * @brief G-code viewer (PrusaSlicer 2.x): opens a G-code file (ASCII or binary) in a new
+     * project, as the result of its bed. The caller shows the preview.
+     * @return An error message when the file cannot be read or processed.
+     */
+    std::optional<std::string> open_gcode_preview(const boost::filesystem::path& path);
     Domain::SelectionId new_project_with_modification(
         const std::function<void(Domain::Project&)>& modifier
     );
