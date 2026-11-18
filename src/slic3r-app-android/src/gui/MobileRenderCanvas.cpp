@@ -10,10 +10,12 @@
 #include "Slic3r/Log.hpp"
 
 #include <imgui/imgui.h>
+#include <imgui/imgui_internal.h>
 #include <imgui/backends/imgui_impl_opengl3.h>
 
 #include <GL/glew.h>
 
+#include <algorithm>
 #include <cmath>
 
 namespace Slic3r::App::Mobile {
@@ -119,6 +121,7 @@ bool MobileRenderCanvas::render_frame()
 {
     m_main_thread_dispatcher.dispatch_enqueued();
     update_long_press();
+    update_fling();
     get_and_reset_render_requested();
     render();
 
@@ -130,7 +133,7 @@ bool MobileRenderCanvas::render_frame()
         }
     }
 
-    const bool more = m_render_request_count > 0 || m_gesture == Gesture::Pending;
+    const bool more = m_render_request_count > 0 || m_gesture == Gesture::Pending || m_scroll_velocity != 0.f;
     return more;
 }
 
@@ -148,6 +151,8 @@ bool MobileRenderCanvas::begin_frame_platform()
     style.FontScaleDpi       = 1;
     style.FontScaleMain      = 1;
     style.FontSizeBase       = font_size_px;
+    // Fingers are less precise than a mouse: widgets react a little outside their bounds.
+    style.TouchExtraPadding = ImVec2(4.f, 4.f);
 
     const int dpi = int(96.f * m_ui_scale + 0.5f);
     set_screen_size({size_t(m_width_px), size_t(m_height_px), m_ui_scale, dpi, font_size_px, font_size_pt});
@@ -239,6 +244,80 @@ void MobileRenderCanvas::update_long_press()
     }
 }
 
+bool MobileRenderCanvas::begin_touch_scroll(Point p)
+{
+    ImGuiContext* g = ImGui::GetCurrentContext();
+    if (g == nullptr) {
+        return false;
+    }
+    const bool vertical = std::abs(p.y - m_touch_start.y) >= std::abs(p.x - m_touch_start.x);
+    // The innermost window under the finger that can scroll that way (child windows first).
+    for (ImGuiWindow* window = g->HoveredWindow; window != nullptr;
+         window = (window->Flags & ImGuiWindowFlags_ChildWindow) ? window->ParentWindow : nullptr)
+    {
+        const float scroll_max = vertical ? window->ScrollMax.y : window->ScrollMax.x;
+        if (scroll_max > 0.5f) {
+            m_scroll_window_id  = window->ID;
+            m_scroll_vertical   = vertical;
+            m_scroll_start_value = vertical ? window->Scroll.y : window->Scroll.x;
+            m_scroll_velocity   = 0.f;
+            m_scroll_last_point = p;
+            m_scroll_last_time  = Clock::now();
+            return true;
+        }
+    }
+    return false;
+}
+
+void MobileRenderCanvas::update_touch_scroll(Point p)
+{
+    ImGuiWindow* window = ImGui::FindWindowByID(m_scroll_window_id);
+    if (window == nullptr) {
+        return;
+    }
+    const float moved = m_scroll_vertical ? p.y - m_touch_start.y : p.x - m_touch_start.x;
+    const float max   = m_scroll_vertical ? window->ScrollMax.y : window->ScrollMax.x;
+    const float value = std::clamp(m_scroll_start_value - moved, 0.f, max);
+    m_scroll_vertical ? ImGui::SetScrollY(window, value) : ImGui::SetScrollX(window, value);
+
+    // Finger velocity (smoothed) for the fling.
+    const auto now = Clock::now();
+    const float dt = std::chrono::duration<float>(now - m_scroll_last_time).count();
+    if (dt > 0.001f) {
+        const float delta    = m_scroll_vertical ? p.y - m_scroll_last_point.y : p.x - m_scroll_last_point.x;
+        const float velocity = -delta / dt;
+        m_scroll_velocity    = 0.6f * velocity + 0.4f * m_scroll_velocity;
+        m_scroll_last_point  = p;
+        m_scroll_last_time   = now;
+    }
+    AbstractRenderCanvas::request_render();
+}
+
+void MobileRenderCanvas::update_fling()
+{
+    if (m_scroll_velocity == 0.f || m_gesture == Gesture::Scroll) {
+        return;
+    }
+    ImGuiWindow* window = ImGui::GetCurrentContext() ? ImGui::FindWindowByID(m_scroll_window_id) : nullptr;
+    const auto now      = Clock::now();
+    const float dt      = std::min(std::chrono::duration<float>(now - m_fling_last_time).count(), 0.05f);
+    m_fling_last_time   = now;
+    if (window == nullptr || std::abs(m_scroll_velocity) < 30.f) {
+        m_scroll_velocity = 0.f;
+        return;
+    }
+    const float current = m_scroll_vertical ? window->Scroll.y : window->Scroll.x;
+    const float max     = m_scroll_vertical ? window->ScrollMax.y : window->ScrollMax.x;
+    const float value   = std::clamp(current + m_scroll_velocity * dt, 0.f, max);
+    m_scroll_vertical ? ImGui::SetScrollY(window, value) : ImGui::SetScrollX(window, value);
+    if (value <= 0.f || value >= max) {
+        m_scroll_velocity = 0.f;
+    } else {
+        m_scroll_velocity *= std::exp(-dt * 3.5f); // friction
+    }
+    AbstractRenderCanvas::request_render();
+}
+
 void MobileRenderCanvas::on_touch(TouchAction action, int pointer_count, const float* xs, const float* ys)
 {
     if (pointer_count <= 0) {
@@ -289,12 +368,14 @@ void MobileRenderCanvas::on_touch(TouchAction action, int pointer_count, const f
 
     switch (action) {
     case TouchAction::Down:
+        m_scroll_velocity = 0.f; // a touch stops a fling
         if (m_gesture == Gesture::None) {
             m_gesture          = Gesture::Pending;
             m_touch_start      = p0;
             m_touch_last       = p0;
             m_touch_start_time = Clock::now();
             set_pointer(p0);
+            AbstractRenderCanvas::request_render(); // let ImGui see what is under the finger
         }
         break;
 
@@ -302,11 +383,17 @@ void MobileRenderCanvas::on_touch(TouchAction action, int pointer_count, const f
         if (m_gesture == Gesture::Pending
             && std::hypot(p0.x - m_touch_start.x, p0.y - m_touch_start.y) > touch_slop)
         {
-            send_button(MouseButton::Left, true, m_touch_start);
-            m_gesture = Gesture::Drag;
+            if (begin_touch_scroll(p0)) {
+                m_gesture = Gesture::Scroll;
+            } else {
+                send_button(MouseButton::Left, true, m_touch_start);
+                m_gesture = Gesture::Drag;
+            }
         }
         if (m_gesture == Gesture::Drag) {
             send_move(p0);
+        } else if (m_gesture == Gesture::Scroll) {
+            update_touch_scroll(p0);
         }
         m_touch_last = p0;
         break;
@@ -326,6 +413,13 @@ void MobileRenderCanvas::on_touch(TouchAction action, int pointer_count, const f
             send_button(MouseButton::Left, false, m_touch_start);
         } else if (m_gesture == Gesture::Drag) {
             send_button(MouseButton::Left, false, p0);
+        } else if (m_gesture == Gesture::Scroll) {
+            // Fling if the finger was still moving when lifted.
+            const float idle = std::chrono::duration<float>(Clock::now() - m_scroll_last_time).count();
+            if (idle > 0.08f) {
+                m_scroll_velocity = 0.f;
+            }
+            m_fling_last_time = Clock::now();
         } else if (m_gesture == Gesture::TwoFinger) {
             send_button(MouseButton::Middle, false, m_two_finger_center);
         }

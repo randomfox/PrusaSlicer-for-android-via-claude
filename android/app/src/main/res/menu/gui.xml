@@ -15,6 +15,10 @@
         android:title="@string/ui_smaller"
         app:showAsAction="never" />
     <item
+        android:id="@+id/action_import_script"
+        android:title="@string/import_script"
+        app:showAsAction="never" />
+    <item
         android:id="@+id/action_quick_slice"
         android:title="@string/quick_slice"
         app:showAsAction="never" />

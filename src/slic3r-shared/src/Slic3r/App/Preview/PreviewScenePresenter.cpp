@@ -66,6 +66,7 @@ void PreviewScenePresenter::on_selected_project_changed(size_t index)
         camera.add_listener<Scene::ICameraUpdateListener>(&m_bed_render_updater);
         camera.add_listener<Scene::ICameraUpdateListener>(this);
         camera.set_viewport(m_viewport);
+        camera.set_follows_lens_shift(true);
         project_context().scene().add_listener<Scene::ISceneChangedListener>(this);
     }
     set_scene_aabb_as_dirty();

@@ -6,6 +6,7 @@
 #include <string>
 #include <boost/filesystem.hpp>
 #include <memory>
+#include <utility>
 #include <variant>
 #include <vector>
 
@@ -47,6 +48,10 @@ struct PrintHostJobData
     std::string storage;
     std::string group;
     std::string request_body_json;
+
+    /// G-code post-processing scripts (print setting "post_process") and their environment.
+    std::vector<std::string> post_process_scripts;
+    std::vector<std::pair<std::string, std::string>> post_process_environment;
 
     PrintHostJobData() = delete;
 

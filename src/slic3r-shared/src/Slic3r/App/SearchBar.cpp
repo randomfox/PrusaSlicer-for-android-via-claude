@@ -82,6 +82,11 @@ void SearchBar::render(const Yoga::Vec2f& pos, const Yoga::Vec2f& size)
     }
 }
 
+void SearchBar::set_compact(bool compact)
+{
+    m_input_text->set_width(compact ? 70_fpx : 150_fpx);
+}
+
 void SearchBar::focus_search()
 {
     m_input_text->request_focus();

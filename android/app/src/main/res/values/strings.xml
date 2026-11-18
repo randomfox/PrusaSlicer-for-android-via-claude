@@ -26,6 +26,15 @@
     <string name="ui_zoom_value">Interface size %1$d%%</string>
     <string name="quick_slice">Quick slice</string>
     <string name="share_log">Share log</string>
+    <string name="import_script">Import post-processing script…</string>
+    <string name="script_imported_title">Post-processing script imported</string>
+    <string name="script_imported_text">Add this line to Print settings › Post-processing scripts (search for "post-processing"):
+
+%1$s
+
+Only shell scripts (sh) can run on Android. The script gets the G-code file as its last argument and must change it in place.</string>
+    <string name="copy">Copy</string>
+    <string name="import_failed">Could not import the file.</string>
     <string name="crash_title">PrusaSlicer closed unexpectedly</string>
     <string name="crash_message">The last session ended unexpectedly. Sharing the log helps to find the cause.</string>
     <string name="context_lost">The graphics context was lost. PrusaSlicer needs to restart.</string>

@@ -743,6 +743,7 @@ void PlaterScenePresenter::on_selected_project_changed(size_t index)
         camera.add_listener<Scene::ICameraUpdateListener>(&m_bed_render_updater);
         camera.add_listener<Scene::ICameraUpdateListener>(this);
         camera.set_viewport(m_viewport);
+        camera.set_follows_lens_shift(true);
 
         scene.add_listener<App::Scene::ISceneChangedListener>(this);
 

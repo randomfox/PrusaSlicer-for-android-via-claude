@@ -85,6 +85,10 @@ private:
     void set_pointer(Point p);
     void send_wheel(Point p, float delta_x, float delta_y);
     void update_long_press();
+    /// Starts scrolling the ImGui window under the finger, if it can scroll in the drag direction.
+    bool begin_touch_scroll(Point p);
+    void update_touch_scroll(Point p);
+    void update_fling();
 
     IMobileHost& m_host;
     bool m_gl_initialized{false};
@@ -95,13 +99,22 @@ private:
     bool m_text_input_active{false};
 
     // Touch gesture state.
-    enum class Gesture { None, Pending, Drag, TwoFinger, Consumed };
+    enum class Gesture { None, Pending, Drag, Scroll, TwoFinger, Consumed };
     Gesture m_gesture{Gesture::None};
     Point m_touch_start{};
     Point m_touch_last{};
     Clock::time_point m_touch_start_time{};
     Point m_two_finger_center{};
     float m_two_finger_distance{0.f};
+
+    // Drag to scroll panels (Gesture::Scroll) and the fling after it.
+    unsigned m_scroll_window_id{0};
+    bool m_scroll_vertical{true};
+    float m_scroll_start_value{0.f};
+    float m_scroll_velocity{0.f}; // logical px per second, in scroll direction
+    Point m_scroll_last_point{};
+    Clock::time_point m_scroll_last_time{};
+    Clock::time_point m_fling_last_time{};
 };
 
 } // namespace Slic3r::App::Mobile

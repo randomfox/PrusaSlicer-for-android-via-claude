@@ -1,3 +1,5 @@
+#include <atomic>
+#include <cmath>
 #include "Slic3r/App/Scene/Camera.hpp"
 #include "Slic3r/App/Scene/CameraProjectionParameters.hpp"
 #include "Slic3r/App/Render/MathUtils.hpp"
@@ -27,7 +29,35 @@ void Camera::set_model(const Transform& m)
 void Camera::set_projection(const Domain::SquareMatrix4d& m)
 {
     m_projection = m;
+    m_lens_shift_generation = -1;
     invoke_listeners<ICameraUpdateListener>([this](auto* l) { l->camera_updated(*this); });
+}
+
+namespace {
+std::atomic<double> g_lens_shift_y{0.};
+std::atomic<int> g_lens_shift_generation{0};
+} // namespace
+
+void Camera::set_lens_shift(double ndc_y)
+{
+    if (std::abs(g_lens_shift_y.load() - ndc_y) > 1e-4) {
+        g_lens_shift_y = ndc_y;
+        ++g_lens_shift_generation;
+    }
+}
+
+void Camera::refresh_lens_shift() const
+{
+    const int generation = g_lens_shift_generation.load();
+    if (generation == m_lens_shift_generation) {
+        return;
+    }
+    m_shifted_projection = m_projection;
+    // Translation in NDC: y_ndc' = y_ndc + shift, i.e. y_clip' = y_clip + shift * w_clip.
+    if (m_follows_lens_shift) {
+        m_shifted_projection.row(1) += g_lens_shift_y.load() * m_projection.row(3);
+    }
+    m_lens_shift_generation = generation;
 }
 
 void Camera::set_viewport(const Render::Rect& viewport)
@@ -78,7 +108,7 @@ Ray Camera::ray_at(double screen_x, double screen_y) const
         1
     };
     Vec4d ray_clip{ray_nds.x(), ray_nds.y(), -1, 1};
-    Vec4d ray_eye = m_projection.inverse() * ray_clip;
+    Vec4d ray_eye = projection().inverse() * ray_clip;
     if (m_projection_getter->type() == CameraProjectionType::Perspective) {
         ray_eye.z() = -1;
         ray_eye.w() = 0;
@@ -100,7 +130,7 @@ Ray Camera::ray_at(double screen_x, double screen_y) const
 
 Vec3d Camera::unproject(const Vec3d& win_pos) const
 {
-    SquareMatrix4d inv_pm = (m_projection * view().matrix()).inverse();
+    SquareMatrix4d inv_pm = (projection() * view().matrix()).inverse();
     Vec4d w{
         (2 * win_pos.x() - m_viewport.x) / m_viewport.width - 1,
         (2 * win_pos.y() - m_viewport.y) / m_viewport.height - 1,
@@ -113,7 +143,7 @@ Vec3d Camera::unproject(const Vec3d& win_pos) const
 
 Domain::Vec3d Camera::project_to_ndc(const Domain::Vec3d& world_pos) const
 {
-    const Domain::SquareMatrix4d projection_view_matrix = m_projection * view().matrix();
+    const Domain::SquareMatrix4d projection_view_matrix = projection() * view().matrix();
     // world to clip
     Vec4d clip = projection_view_matrix * Vec4d(world_pos.x(), world_pos.y(), world_pos.z(), 1.0);
     // clip to ndc
@@ -149,6 +179,7 @@ void Camera::update_projection()
 {
     DEBUG_ASSERT(m_projection_getter != nullptr);
     m_projection = m_projection_getter->projection(m_viewport, m_zoom);
+    m_lens_shift_generation = -1;
 }
 
 PerspectiveCameraProjection::PerspectiveCameraProjection() :

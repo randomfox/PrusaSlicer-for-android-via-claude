@@ -1,3 +1,6 @@
+#include <boost/algorithm/string/trim.hpp>
+#include <boost/algorithm/string/case_conv.hpp>
+#include "Slic3r/Biz/Config/ConfigSerialize.hpp"
 #include "Slic3r/Biz/ProjectInteractor.hpp"
 
 #include <Slic3r/Assert.hpp>
@@ -946,6 +949,68 @@ void ProjectInteractor::remove_project(Domain::SelectionId project_id)
     }
 }
 
+namespace {
+/// Post-processing scripts of the print preset and the environment they run with
+/// (PrusaSlicer 2 compatible: SLIC3R_<OPTION> variables, SLIC3R_PP_HOST, SLIC3R_PP_OUTPUT_NAME).
+void set_post_process_scripts(
+    const Domain::Preset::SelectedPreset& preset,
+    const PhysicalPrinter::PhysicalPrinterConfig& print_host_config,
+    PrintHost::PrintHostJobData& job_data
+)
+{
+    const Domain::ConfigPack pack = preset.config();
+    const auto* fdm               = std::get_if<Domain::ConfigPackFDM>(&pack);
+    if (fdm == nullptr) {
+        return;
+    }
+    const Domain::ConfigItem* scripts_item = fdm->print.items.find("post_process");
+    if (scripts_item == nullptr) {
+        return;
+    }
+    std::vector<std::string> scripts;
+    for (const std::string& script : scripts_item->get<std::vector<std::string>>()) {
+        if (!boost::algorithm::trim_copy(script).empty()) {
+            scripts.push_back(script);
+        }
+    }
+    if (scripts.empty()) {
+        return;
+    }
+    job_data.post_process_scripts = std::move(scripts);
+
+    auto& env = job_data.post_process_environment;
+    std::vector<const Domain::ConfigBox*> boxes{&fdm->printer, &fdm->print};
+    if (!fdm->tool.empty()) {
+        boxes.push_back(&fdm->tool.front());
+    }
+    if (!fdm->filament.empty()) {
+        boxes.push_back(&fdm->filament.front());
+    }
+    for (const Domain::ConfigBox* box : boxes) {
+        for (const Domain::ConfigItem& item : box->items.all_items()) {
+            auto value = value_as_string(item);
+            std::string text;
+            if (const std::string* single = std::get_if<std::string>(&value)) {
+                text = *single;
+            } else {
+                for (const std::string& part : std::get<std::vector<std::string>>(value)) {
+                    text += (text.empty() ? "" : ";") + part;
+                }
+            }
+            env.emplace_back("SLIC3R_" + boost::algorithm::to_upper_copy(item.name()), std::move(text));
+        }
+    }
+    std::string host = "File";
+    if (const auto* upload = std::get_if<PhysicalPrinter::PrinterUpload>(&print_host_config.payload)) {
+        host = Domain::print_host_type_to_string(upload->type);
+    } else if (std::holds_alternative<PhysicalPrinter::ConnectUpload>(print_host_config.payload)) {
+        host = "PrusaConnect";
+    }
+    env.emplace_back("SLIC3R_PP_HOST", host);
+    env.emplace_back("SLIC3R_PP_OUTPUT_NAME", job_data.dest_path.string());
+}
+} // namespace
+
 void ProjectInteractor::do_result_export_inner(const Domain::SlicingId id, PhysicalPrinter::PhysicalPrinterConfig&& print_host_config, PrintHost::PrintHostJobData&& job_data)
 {
     // Find confing container with matching bed instance id.
@@ -967,6 +1032,7 @@ void ProjectInteractor::do_result_export_inner(const Domain::SlicingId id, Physi
         const std::optional<FDMResultRef> fdm_result{m_fdm_result_cache.get_result(id)};
         ASSERT(fdm_result);
         job_data.data_ptr = fdm_result.value().get().const_gcode();
+        set_post_process_scripts(config_container->selected_preset(), print_host_config, job_data);
         m_result_export_interactor.perform(std::move(print_host_config), std::move(job_data));
     } else if (tech == Domain::PrinterTechnology::SLA) {
 

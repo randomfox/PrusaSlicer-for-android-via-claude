@@ -148,10 +148,21 @@ public:
 
     void look_at(const Domain::Vec3d& eye, const Domain::Vec3d& center, const Domain::Vec3d& up);
 
+    /// The projection, including the global lens shift (see set_lens_shift()).
     const Domain::SquareMatrix4d& projection() const
     {
-        return m_projection;
+        refresh_lens_shift();
+        return m_shifted_projection;
     }
+
+    /**
+     * @brief Moves the image of all cameras vertically by `ndc_y` (in normalized device
+     * coordinates, positive = up), e.g. to center the scene in the part of the screen that is
+     * not covered by panels. Picking and projections take it into account.
+     */
+    static void set_lens_shift(double ndc_y);
+    /// Only the main scene cameras follow the lens shift (not thumbnails etc.).
+    void set_follows_lens_shift(bool follows) { m_follows_lens_shift = follows; m_lens_shift_generation = -1; }
 
     void set_projection(const Domain::SquareMatrix4d& m);
 
@@ -248,6 +259,11 @@ private:
 
     Transform m_model{Transform::Identity()};
     Domain::SquareMatrix4d m_projection{Domain::SquareMatrix4d::Identity()};
+
+    void refresh_lens_shift() const;
+    mutable Domain::SquareMatrix4d m_shifted_projection{Domain::SquareMatrix4d::Identity()};
+    mutable int m_lens_shift_generation{-1};
+    bool m_follows_lens_shift{false};
     Render::Rect m_viewport;
     double m_zoom{1.};
     std::unique_ptr<AbstractCameraProjection> m_projection_getter;

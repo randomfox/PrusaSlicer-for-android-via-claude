@@ -10,9 +10,11 @@ val bundledResources = listOf("presets", "lua", "lua_template", "shaders", "icon
 val generatedAssets = layout.buildDirectory.dir("generated/prusaslicer-assets")
 val repoRoot = rootProject.projectDir.parentFile
 
+val stagedResources = layout.buildDirectory.dir("generated/prusaslicer-resources")
+
 val copyPrusaSlicerResources by tasks.registering(Sync::class) {
-    description = "Copies PrusaSlicer resources into the APK assets."
-    into(generatedAssets.map { it.dir("resources") })
+    description = "Collects the PrusaSlicer resources bundled with the app."
+    into(stagedResources)
     bundledResources.forEach { dir ->
         from(File(repoRoot, "resources/$dir")) {
             into(dir)
@@ -26,6 +28,18 @@ val copyPrusaSlicerResources by tasks.registering(Sync::class) {
         into("localization")
         include("**/*.mo")
     }
+}
+
+// One archive instead of ~1300 separate assets: extracting it is much faster than listing and
+// copying the asset tree file by file (see ResourceInstaller).
+val zipPrusaSlicerResources by tasks.registering(Zip::class) {
+    description = "Packs the PrusaSlicer resources into a single APK asset."
+    dependsOn(copyPrusaSlicerResources)
+    from(stagedResources)
+    archiveFileName.set("resources.zip")
+    destinationDirectory.set(generatedAssets)
+    isReproducibleFileOrder = true
+    isPreserveFileTimestamps = false
 }
 
 android {
@@ -79,13 +93,13 @@ android {
     }
 
     androidResources {
-        // Preset/config files must be stored as-is.
-        noCompress += listOf("ini", "json", "yaml", "lua")
+        // The resource archive is compressed already.
+        noCompress += listOf("zip")
     }
 }
 
 tasks.named("preBuild") {
-    dependsOn(copyPrusaSlicerResources)
+    dependsOn(zipPrusaSlicerResources)
 }
 
 dependencies {

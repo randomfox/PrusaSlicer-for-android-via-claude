@@ -3,6 +3,7 @@
 #include "Slic3r/Assert.hpp"
 #include "Slic3r/Biz/ResultExport/SLA/SL1.hpp"
 #include "Slic3r/Directories.hpp"
+#include "Slic3r/Biz/ResultExport/PostProcessScripts.hpp"
 
 #include <LibBGCode/convert/convert.hpp>
 #include <jthread/JThread.hpp>
@@ -36,15 +37,13 @@ struct FileGuard {
     ~FileGuard() { if (file) std::fclose(file); }
 };
 
+void binarize_file(FILE& source, const boost::filesystem::path& target_path);
+
 void from_ascii_to_binary_wrapper(const libpgcode::LineView& input, const boost::filesystem::path& target_path) 
 {
     FileGuard src_guard {std::tmpfile()};
     if (!src_guard.file) {
         throw std::runtime_error("Failed to create temporary input file");
-    }
-    FileGuard dst_guard {fopen(target_path.string().c_str(), "wb")};
-    if (!dst_guard.file) {
-        throw std::runtime_error("Failed to open file for writing: " + target_path.string());
     }
 
     size_t data_size = input.str().size();
@@ -54,6 +53,15 @@ void from_ascii_to_binary_wrapper(const libpgcode::LineView& input, const boost:
     }
     std::fflush(src_guard.file);
     std::rewind(src_guard.file); // Reset file pointer for reading by from_ascii_to_binary()
+    binarize_file(*src_guard.file, target_path);
+}
+
+void binarize_file(FILE& source, const boost::filesystem::path& target_path)
+{
+    FileGuard dst_guard {fopen(target_path.string().c_str(), "wb")};
+    if (!dst_guard.file) {
+        throw std::runtime_error("Failed to open file for writing: " + target_path.string());
+    }
 
     bgcode::binarize::BinarizerConfig binarizer_config{
         {
@@ -68,7 +76,7 @@ void from_ascii_to_binary_wrapper(const libpgcode::LineView& input, const boost:
         bgcode::core::EChecksumType::CRC32
     };
 
-    const bgcode::core::EResult res = bgcode::convert::from_ascii_to_binary(*src_guard.file, *dst_guard.file, binarizer_config);
+    const bgcode::core::EResult res = bgcode::convert::from_ascii_to_binary(source, *dst_guard.file, binarizer_config);
     if (res != bgcode::core::EResult::Success) {
         throw std::runtime_error(std::string(bgcode::core::translate_result(res)));
     } 
@@ -91,8 +99,40 @@ void write_lineview_to_path(const libpgcode::LineView& input, const boost::files
     }
 }
 
-void process_line_view(const libpgcode::LineView& input, const boost::filesystem::path& result_path, bool binary)
+void process_line_view(
+    const libpgcode::LineView& input,
+    const boost::filesystem::path& result_path,
+    bool binary,
+    const PrintHost::PrintHostJobData& data
+)
 {
+    if (!data.post_process_scripts.empty()) {
+        // The scripts edit ASCII G-code in place; binarize afterwards.
+        const boost::filesystem::path ascii_path =
+            binary ? boost::filesystem::path(result_path.string() + ".pp.gcode") : result_path;
+        write_lineview_to_path(input, ascii_path);
+        try {
+            run_post_process_scripts(data.post_process_scripts, ascii_path, data.post_process_environment);
+            if (binary) {
+                FileGuard source{std::fopen(ascii_path.string().c_str(), "rb")};
+                if (!source.file) {
+                    throw std::runtime_error("Failed to open post-processed G-code: " + ascii_path.string());
+                }
+                binarize_file(*source.file, result_path);
+            }
+        } catch (...) {
+            boost::system::error_code ec;
+            if (binary) {
+                boost::filesystem::remove(ascii_path, ec);
+            }
+            throw;
+        }
+        if (binary) {
+            boost::system::error_code ec;
+            boost::filesystem::remove(ascii_path, ec);
+        }
+        return;
+    }
     if (binary) {
         from_ascii_to_binary_wrapper(input, result_path);
     } else {
@@ -131,7 +171,7 @@ void ResultExportDataFinalizer::finalize(PhysicalPrinter::PhysicalPrinterConfig&
             {
                 using T = std::decay_t<decltype(arg)>;
                 if constexpr (std::is_same_v<T, std::shared_ptr<const libpgcode::LineView>>) {
-                    process_line_view(*arg, data.source_path, boost::iequals(data.dest_path.extension().string(), ".bgcode"));
+                    process_line_view(*arg, data.source_path, boost::iequals(data.dest_path.extension().string(), ".bgcode"), data);
                 } else if constexpr (std::is_same_v<T, std::shared_ptr<const Slicing::SLAResultData>>) {
                     process_sla_result(
                         *arg,

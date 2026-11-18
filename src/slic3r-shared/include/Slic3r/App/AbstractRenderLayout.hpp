@@ -108,6 +108,14 @@ protected:
     void update_cube_view_position();
     void update_left_separator_enable();
 
+    /// Mobile: on narrow portrait screens the columns are stacked vertically (object list,
+    /// scene, sidebar) instead of side by side.
+    void update_compact_layout();
+    void apply_compact_heights();
+    bool m_compact{false};
+    double m_saved_left_width{0.};
+    double m_saved_right_width{0.};
+
 private:
     void init_toolbar_row();
 

@@ -77,6 +77,9 @@ public:
 
     void focus_search();
 
+    /// Narrow screens (mobile portrait): icons without labels, a shorter search box.
+    void set_compact(bool compact);
+
 private:
     void add_save_project_btn(Item* parent);
     void add_undo_btn(Item* parent);
@@ -87,6 +90,7 @@ private:
     void add_menu_btns_items();
 
     void update_recent_projects();
+
 
 private:
     using ProjectButtonFactory = Yoga::

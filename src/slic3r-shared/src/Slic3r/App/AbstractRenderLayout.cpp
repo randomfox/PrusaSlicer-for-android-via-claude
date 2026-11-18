@@ -2,7 +2,12 @@
 
 #include <imgui_internal.h>
 
+#include <algorithm>
+#include <cmath>
+#include <limits>
+
 #include "Slic3r/App/Scene/IGizmo.hpp"
+#include "Slic3r/App/Scene/Camera.hpp"
 #include "Slic3r/App/ToolBar/ToolBar.hpp"
 #include "Slic3r/App/ToolBar/ToolBarButton.hpp"
 #include "Slic3r/App/Yoga/ImGuiUtils.hpp"
@@ -25,14 +30,74 @@ SidebarStackLayout* AbstractRenderLayout::sidebar_stack_layout() const
 
 void AbstractRenderLayout::save_column_sizes()
 {
+    // In the compact (stacked) layout the columns span the whole width: keep the side by side sizes.
     AppServices::instance().app_config().set<double>(
         "layout_main_left_column_width",
-        static_cast<double>(m_layout_left_column->width())
+        m_compact ? m_saved_left_width : static_cast<double>(m_layout_left_column->width())
     );
     AppServices::instance().app_config().set<double>(
         "layout_main_right_column_width",
-        static_cast<double>(m_layout_right_column->width())
+        m_compact ? m_saved_right_width : static_cast<double>(m_layout_right_column->width())
     );
+}
+
+void AbstractRenderLayout::apply_compact_heights()
+{
+    const float height = std::max(400.f, float(m_info.viewport_size_y) - 45.f);
+    // Collapsed object list: just its header; expanded: a third of the screen.
+    m_layout_left_column->set_height(m_object_list->collapsed() ? 50.f : std::round(height * 0.3f));
+    m_layout_right_column->set_height(std::round(height * 0.55f));
+    m_layout_main_bottom->invalidate();
+}
+
+void AbstractRenderLayout::update_compact_layout()
+{
+#ifdef SLIC3R_MOBILE
+    const bool compact = m_info.viewport_size_y > m_info.viewport_size_x && m_info.viewport_size_x < 700;
+#else
+    const bool compact = false;
+#endif
+    if (compact == m_compact || m_layout_main_bottom == nullptr) {
+        return;
+    }
+    m_compact = compact;
+    constexpr float auto_size = std::numeric_limits<float>::quiet_NaN();
+
+    if (compact) {
+        m_saved_left_width  = m_layout_left_column->width();
+        m_saved_right_width = m_layout_right_column->width();
+
+        m_layout_main_bottom->set_orientation(Yoga::Orientation::Vertical);
+        // Full width; the heights are split between object list, scene and sidebar.
+        for (Item* column : {m_layout_left_column, m_layout_center_row, m_layout_right_column}) {
+            column->set_width(auto_size);
+            column->set_min_width(0);
+        }
+        m_layout_left_column->set_min_height(50);
+        m_layout_center_row->set_min_height(160);
+        m_layout_right_column->set_min_height(160);
+        // Start with the object list collapsed: the scene and the sidebar need the room.
+        if (!m_object_list->collapsed()) {
+            m_object_list->set_collapsed(true);
+        }
+        apply_compact_heights();
+    } else {
+        m_layout_main_bottom->set_orientation(Yoga::Orientation::Horizontal);
+        for (Item* column : {m_layout_left_column, m_layout_center_row, m_layout_right_column}) {
+            column->set_height(auto_size);
+            column->set_min_height(0);
+        }
+        m_layout_left_column->set_min_width(280.f);
+        m_layout_center_row->set_min_width(345);
+        m_layout_right_column->set_min_width(240);
+        m_layout_left_column->set_width(m_saved_left_width);
+        m_layout_right_column->set_width(m_saved_right_width);
+    }
+    m_top_bar->set_compact(compact);
+    // SplitLayout gives the flexible child its size along the new axis.
+    m_layout_main_bottom->set_flex_child(m_layout_center_row, true);
+    m_layout_main_bottom->invalidate();
+    update_cube_view_position();
 }
 
 void AbstractRenderLayout::load_column_sizes()
@@ -82,7 +147,7 @@ void AbstractRenderLayout::update_cube_view_position()
         m_layout_scene_row->index_of(m_cube_view_wrapper).has_value() ? Location::SceneRow :
                                                                         Location::LeftColumn;
     const Location target_location =
-        m_sidebars_visible && (m_object_list->collapsed() || does_cube_fits()) ?
+        m_sidebars_visible && !m_compact && (m_object_list->collapsed() || does_cube_fits()) ?
         Location::LeftColumn :
         Location::SceneRow;
 
@@ -259,6 +324,9 @@ void AbstractRenderLayout::init_left_column()
 
     m_object_list->collapsible_window_callbacks().collapsed_changed = [this](bool collapsed)
     {
+        if (m_compact) {
+            apply_compact_heights();
+        }
         update_cube_view_position();
         update_left_separator_enable();
         m_navigator.set_object_list_collapsed(collapsed);
@@ -340,6 +408,13 @@ void AbstractRenderLayout::init_right_column()
     sidebar_bed_print->set_orientation(Orientation::Vertical);
     sidebar_bed_print->set_gap(5);
     sidebar_bed_print->set_flex_grow(1);
+#ifdef SLIC3R_MOBILE
+    // Phone screens are short: rather than squeezing the print panel to nothing, let the bed
+    // panel shrink (it scrolls) and keep the print panel usable.
+    m_sidebar_bed->set_flex_shrink(1);
+    m_sidebar_bed->set_min_height(90);
+    m_sidebar_print->set_min_height(150);
+#endif
     sidebar_bed_print->append(m_sidebar_bed.release());
     sidebar_bed_print->append(m_sidebar_print.release());
     m_layout_sidebar_stack_layout->insert_item(
@@ -450,8 +525,18 @@ void AbstractRenderLayout::set_size_info_from_screen(const Render::ScreenInfo& s
 
 void AbstractRenderLayout::render()
 {
+    update_compact_layout();
     SetOurStyleVars our_vars;
     m_layout_main.root_render(m_info);
+
+    // Stacked layout: center the 3D scene in the part of the screen between the panels.
+    double lens_shift = 0.;
+    if (m_compact && m_info.viewport_size_y > 0 && m_layout_center_row->is_self_visible() && m_sidebars_visible) {
+        const float top    = m_layout_center_row->get_global_pos().y();
+        const float center = top + 0.5f * m_layout_center_row->height();
+        lens_shift         = 1. - 2. * double(center) / double(m_info.viewport_size_y);
+    }
+    Scene::Camera::set_lens_shift(lens_shift);
 }
 
 } // namespace Slic3r::App

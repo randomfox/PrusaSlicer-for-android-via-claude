@@ -289,6 +289,22 @@ void TopBar::on_plugins_scanned(const Lua::PluginRegistry& registry)
     m_menu_command_registrar.update_main_menu_plugin_commands(*m_plugin_system);
 }
 
+void TopBar::set_compact(bool compact)
+{
+    if (App::MenuItem* item = m_render_module->menu_manager().menu_item(MenuItemName::MainMenu); item && m_main_menu_btn) {
+        m_main_menu_btn->set_label(compact ? std::string{} : MenuBuilder::item_name_translated(item->name()));
+    }
+    if (App::MenuItem* item = m_render_module->menu_manager().menu_item(MenuItemName::FileMenu); item && m_file_menu_btn) {
+        m_file_menu_btn->set_label(compact ? std::string{} : MenuBuilder::item_name_translated(item->name()));
+    }
+    if (m_undo_redo_wrapper) {
+        m_undo_redo_wrapper->set_min_width(compact ? 0_fpx : 100_fpx);
+    }
+    if (m_search_bar) {
+        m_search_bar->set_compact(compact);
+    }
+}
+
 void TopBar::focus_search()
 {
     m_search_bar->focus_search();

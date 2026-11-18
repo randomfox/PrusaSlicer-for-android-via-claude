@@ -55,6 +55,11 @@ class GuiActivity : AppCompatActivity() {
         if (uris.isNotEmpty()) openUris(uris)
     }
 
+    // "Import post-processing script" from the app menu.
+    private val importScript = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) importPostProcessingScript(uri)
+    }
+
     private var fileToSave: File? = null
     private val saveOutput = registerForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri ->
         val file = fileToSave ?: return@registerForActivityResult
@@ -411,10 +416,43 @@ class GuiActivity : AppCompatActivity() {
         }
     }
 
+    /**
+     * Copies a script into the app's storage (where PrusaSlicer can read it) and shows the line
+     * to put into the "post_process" print setting.
+     */
+    private fun importPostProcessingScript(uri: Uri) {
+        lifecycleScope.launch {
+            val target = withContext(Dispatchers.IO) {
+                runCatching {
+                    val dir = File(filesDir, "scripts").apply { mkdirs() }
+                    val name = (displayName(uri) ?: "script.sh").replace(Regex("[^A-Za-z0-9._-]"), "_")
+                    val file = File(dir, name)
+                    contentResolver.openInputStream(uri)!!.use { input -> file.outputStream().use { input.copyTo(it) } }
+                    file
+                }.getOrNull()
+            }
+            if (target == null) {
+                Toast.makeText(this@GuiActivity, R.string.import_failed, Toast.LENGTH_LONG).show()
+                return@launch
+            }
+            val line = target.absolutePath
+            MaterialAlertDialogBuilder(this@GuiActivity)
+                .setTitle(R.string.script_imported_title)
+                .setMessage(getString(R.string.script_imported_text, line))
+                .setPositiveButton(R.string.copy) { _, _ ->
+                    val clipboard = getSystemService(android.content.ClipboardManager::class.java)
+                    clipboard.setPrimaryClip(android.content.ClipData.newPlainText("script", line))
+                }
+                .setNegativeButton(android.R.string.cancel, null)
+                .show()
+        }
+    }
+
     private fun onAppMenuItem(item: MenuItem): Boolean = when (item.itemId) {
         R.id.action_open -> { openModels.launch(arrayOf("*/*")); true }
         R.id.action_zoom_in -> { setUiZoom(uiZoom() + 0.1f); true }
         R.id.action_zoom_out -> { setUiZoom(uiZoom() - 0.1f); true }
+        R.id.action_import_script -> { importScript.launch(arrayOf("*/*")); true }
         R.id.action_quick_slice -> { startActivity(Intent(this, MainActivity::class.java)); true }
         R.id.action_share_log -> { shareLog(); true }
         else -> false

@@ -25,6 +25,7 @@
 //                          (fields not given keep their value, '_' in values = space;
 //                          without a form command: button 0)
 //   set_print_int KEY N    change an integer option of the selected print preset
+//   set_print_script CMD   set the print preset's post-processing script (rest of the line)
 //   select_print INDEX     select a print preset like the sidebar combo box does
 //   save_print             save the selected print preset (asks for a name)
 //   slice                  slice all beds
@@ -363,6 +364,13 @@ int main(int argc, char** argv)
             app.project_interactor().preset_interactor().set_preset_value(
                 Slic3r::Domain::FDMConfigLocation::Print, 0, key, [value](Slic3r::Domain::ConfigItem& item) { item.set<int>(value); });
             std::printf("[headless] %s\n", print_state(app).c_str());
+            frames(3);
+        } else if (cmd == "set_print_script") {
+            std::string rest; std::getline(in, rest);
+            if (!rest.empty() && rest[0] == ' ') rest.erase(0, 1);
+            app.project_interactor().preset_interactor().set_preset_value(
+                Slic3r::Domain::FDMConfigLocation::Print, 0, "post_process",
+                [rest](Slic3r::Domain::ConfigItem& item) { item.set<std::vector<std::string>>({rest}); });
             frames(3);
         } else if (cmd == "select_print") {
             size_t index = 0; in >> index;

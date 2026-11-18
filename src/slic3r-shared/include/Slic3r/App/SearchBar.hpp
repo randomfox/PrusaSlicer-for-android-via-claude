@@ -25,6 +25,9 @@ public:
 
     void focus_search();
 
+    /// Narrow screens: a shorter input box.
+    void set_compact(bool compact);
+
 private:
     void update_open_popup();
 
