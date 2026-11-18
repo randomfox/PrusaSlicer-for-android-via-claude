@@ -45,6 +45,7 @@
 #include "Slic3r/Biz/Algorithms/BoundingBox.hpp"
 
 #include "Slic3r/App/Plater/PlaterRenderModule.hpp"
+#include "Slic3r/App/Preview/PreviewRenderModule.hpp"
 #include "Slic3r/App/Plater/TextGizmo.hpp"
 
 #include <optional>
@@ -2452,6 +2453,44 @@ void MenuCommandRegistrar::register_file_menu_export_commands()
                 UIItemCommandExtraOpts{
                     .enabled = [this]()
                     { return !m_project_interactor.selected_project().model().objects.empty(); }
+                }
+            )
+        )
+        // File -> Export -> Export toolpaths as OBJ (preview)
+        .register_menu_item(
+            {MenuItemName::FileMenu, MenuItemName::Export, MenuItemName::ExportToolpathsAsObj},
+            std::make_unique<UIItemCommand>(
+                "export-toolpaths-as-obj",
+                [this]()
+                {
+                    auto* preview = dynamic_cast<Preview::PreviewRenderModule*>(&m_render_module);
+                    if (preview == nullptr || !preview->can_export_toolpaths()) {
+                        return;
+                    }
+                    IDialogManager::FileCallback callback =
+                        [preview](const bool success, const std::vector<boost::filesystem::path>& file_paths)
+                    {
+                        if (success && !file_paths.empty() && !preview->export_toolpaths_to_obj(file_paths.front())) {
+                            AppServices::instance().dialog_manager().show_error_dialog(
+                                _u8L("Failed to export the toolpaths."), _u8L("Export toolpaths as OBJ")
+                            );
+                        }
+                    };
+                    AppServices::instance().dialog_manager().show_file_dialog(
+                        FileDialogType::Save,
+                        _u8L("Export toolpaths as OBJ"),
+                        this->default_dialog_folder(),
+                        "toolpaths.obj",
+                        Wildcards::generate_wildcards(Wildcards::TypeFlag::Obj, Wildcards::TypeFlag::Obj),
+                        callback
+                    );
+                },
+                UIItemCommandExtraOpts{
+                    .enabled = [this]()
+                    {
+                        const auto* preview = dynamic_cast<const Preview::PreviewRenderModule*>(&m_render_module);
+                        return preview != nullptr && preview->can_export_toolpaths();
+                    }
                 }
             )
         )

@@ -72,6 +72,10 @@ class PreviewRenderModule final :
     public Biz::Scene::ISceneBedInstanceChangedListener
 {
 public:
+    /// Toolpaths of the shown G-code (FDM only); false when there are none or writing failed.
+    bool can_export_toolpaths() const { return m_viewer == &m_fdm_viewer && m_fdm_viewer.has_data(); }
+    bool export_toolpaths_to_obj(const boost::filesystem::path& obj_path) const { return m_fdm_viewer.export_toolpaths_to_obj(obj_path); }
+
     PreviewRenderModule(
         const Domain::Workbench& workbench,
         Biz::ProjectInteractor& project_interactor,

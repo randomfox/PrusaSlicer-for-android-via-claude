@@ -157,6 +157,8 @@ std::string MenuBuilder::item_name_translated(UniversalMenuItemName menu_item_na
                     return Biz::_u8L("Export G-code to SD card / flash drive");
                 case MenuItemName::ExportPlateAsStl:
                     return Biz::_u8L("Export plate as STL/OBJ") + "...";
+                case MenuItemName::ExportToolpathsAsObj:
+                    return Biz::_u8L("Export toolpaths as OBJ") + "...";
                 case MenuItemName::OnlinePresetUpdate:
                     return Biz::_u8L("Update from online presets");
                 case MenuItemName::PresetReposManagement:

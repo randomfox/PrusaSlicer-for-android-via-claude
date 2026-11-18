@@ -1,3 +1,5 @@
+#include <boost/nowide/cstdio.hpp>
+#include "Slic3r/Version.hpp"
 #include "Slic3r/App/Preview/FdmViewerWrapper.hpp"
 
 #include "Slic3r/App/Preview/LegendWindow.hpp"
@@ -403,6 +405,29 @@ static WipeTowerAndFlushFilamentUsageData extract_wipe_tower_and_flush_filament_
 
         result.print_statistics
     );
+}
+
+bool FdmViewerWrapper::export_toolpaths_to_obj(const boost::filesystem::path& obj_path) const
+{
+    boost::filesystem::path mtl_path = obj_path;
+    mtl_path.replace_extension(".mtl");
+    std::FILE* obj = boost::nowide::fopen(obj_path.string().c_str(), "wb");
+    std::FILE* mtl = boost::nowide::fopen(mtl_path.string().c_str(), "wb");
+    bool ok        = obj != nullptr && mtl != nullptr;
+    if (ok) {
+        libvgcode::ObjExportParams params;
+        params.app_name           = SLIC3R_APP_NAME;
+        params.app_version        = SLIC3R_VERSION;
+        params.materials_filename = mtl_path.filename().string();
+        ok                        = m_viewer.export_toolpaths_to_obj(*obj, *mtl, params);
+    }
+    if (obj != nullptr) {
+        std::fclose(obj);
+    }
+    if (mtl != nullptr) {
+        std::fclose(mtl);
+    }
+    return ok;
 }
 
 static FdmViewerWrapperInputData extract_wrapper_input_data_from_result(const ProcessorResult& result)

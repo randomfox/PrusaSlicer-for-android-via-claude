@@ -108,16 +108,20 @@ bool MobileApp::render_frame()
 
 bool MobileApp::execute_command(const std::string& name)
 {
-    if (!m_plater_module) {
-        return false;
+    // The preview has its own menu (e.g. "Export toolpaths as OBJ"); try it when it is shown.
+    for (Platform::AbstractRenderModule* module : {static_cast<Platform::AbstractRenderModule*>(m_plater_module.get()),
+                                         static_cast<Platform::AbstractRenderModule*>(m_preview_module.get())}) {
+        if (module == nullptr) {
+            continue;
+        }
+        const auto& commands = module->commands();
+        const auto it        = commands.find(name);
+        if (it != commands.end() && it->second && it->second->enabled()) {
+            it->second->execute();
+            return true;
+        }
     }
-    const auto& commands = m_plater_module->commands();
-    const auto it        = commands.find(name);
-    if (it == commands.end() || !it->second || !it->second->enabled()) {
-        return false;
-    }
-    it->second->execute();
-    return true;
+    return false;
 }
 
 void MobileApp::on_question_answered(int request_id, int button_index)

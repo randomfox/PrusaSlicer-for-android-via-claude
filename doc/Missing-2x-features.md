@@ -19,7 +19,7 @@ Status: ✅ done in this branch · ⏳ in progress · ☐ open
 | ✅ | SLA validation (exposure limits, head penetration, pinhead diameter, tilt) | checks were commented out |
 | ✅ | `physical_printer_preset` placeholder | custom G-code using it breaks |
 | ✅ | Keyboard shortcuts / About / System info dialogs | hidden TODO menu items |
-| ☐ | Export toolpaths as OBJ | backend exists (`libvgcode`), no UI |
+| ✅ | Export toolpaths as OBJ | File > Export in the preview; writes the .obj and its .mtl |
 
 ## Batch 2: medium
 | | Feature | Notes |

@@ -1,5 +1,7 @@
 #pragma once
 
+#include <boost/filesystem/path.hpp>
+
 #include "AbstractViewerWrapper.hpp"
 #include "Types.hpp"
 #include "Slic3r/App/Imgui/DoubleSlider.hpp"
@@ -86,6 +88,9 @@ public:
 
     bool init(Render::Device& device, Scene::Scene& scene, Scene::GeometryDataFactory& data_factory) override;
     bool set_settings(const FdmViewerWrapperSettings& settings);
+
+    /// 2.x "Export toolpaths as OBJ": the visible toolpaths into an OBJ file plus its .mtl.
+    bool export_toolpaths_to_obj(const boost::filesystem::path& obj_path) const;
 
     void set_scene(Scene::Scene& scene) override
     {

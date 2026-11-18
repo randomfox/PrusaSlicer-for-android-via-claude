@@ -78,6 +78,7 @@ enum class MenuItemName
     SendGcode,
     ExportGcodeToFlash,
     ExportPlateAsStl,
+    ExportToolpathsAsObj,
 
     OnlinePresetUpdate,
     PresetReposManagement,
