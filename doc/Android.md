@@ -9,7 +9,7 @@ This is an experimental Android port of PrusaSlicer. It is being done in stages:
    resulting G-code (`.gcode` or binary `.bgcode`, depending on the printer profile).
 2. **The PrusaSlicer GUI on Android (in progress).** The full PrusaSlicer 3 interface
    (plater, object list, settings sidebar, slicing, G-code preview, export) runs on OpenGL
-   ES 3.2 with touch input. Landscape only for now. The stage 1 screen is still available
+   ES 3.2 with touch input, in landscape and portrait. The stage 1 screen is still available
    as "Quick slice" from the menu.
 3. **Remaining features (in progress).** STEP import (OpenCASCADE, linked into the app),
    embedded web views for Prusa Account login / Prusa Connect / Printables, `prusaslicer://`
@@ -73,6 +73,16 @@ changed needs `ANDROID_NDK_HOME` set (the toolchain file reads it during re-conf
   name (with PrusaSlicer's name validation), comparing print or material presets, STEP import
   precision, the printer upload file name and PrusaLink storage choice, ramming and wiping
   volume editors (`src/gui/MobilePresetDialogs.*`, `src/gui/MobileServices.cpp`).
+* Portrait: on narrow portrait screens `AbstractRenderLayout` stacks the object list, the
+  scene and the sidebar vertically (draggable separators) and the top bar drops its labels;
+  `Scene::Camera::set_lens_shift()` centers the scene in the part of the screen between the
+  panels. Touch: a finger drag that starts on a scrollable panel scrolls it (with fling)
+  instead of sending a mouse drag (`MobileRenderCanvas`).
+* Post-processing scripts (`post_process`): run on the exported ASCII G-code before it is
+  binarized, with the settings as `SLIC3R_*` environment variables plus `SLIC3R_PP_HOST` and
+  `SLIC3R_PP_OUTPUT_NAME` (`Biz/ResultExport/PostProcessScripts.cpp`). Android cannot execute
+  files that apps write, so script files are run with `/system/bin/sh`: shell scripts only.
+  The app menu can import a script into the app's storage.
 * Printer upload: physical printers (PrusaLink, OctoPrint, ...) and "Send to printer" use the
   shared PrusaSlicer code; curl gets the system CA bundle explicitly (`HttpCurl.cpp`).
 
@@ -133,10 +143,11 @@ prusa-slicer --export-gcode --printer-profile "Original Prusa MK4S HF0.4 nozzle"
 
 ## Limitations of the current stage
 
-* Needs about 1 GB of free memory: loading the full bundled preset library alone takes
-  roughly that much before slicing starts.
+* Loading the bundled preset library needs roughly 450 MB (evaluated material presets are
+  shared between print presets and slots, see `SharedMaterialPresets`;
+  `preset-eval-check` verifies the sharing against a full evaluation).
 * The rendering libraries target OpenGL ES 3.2 (texture buffers); not used yet in stage 1.
 * arm64-v8a only (x86_64 can be built with `PRUSASLICER_ANDROID_ABI=x86_64`, untested).
-* GUI: landscape only. "Compare presets" compares print or material presets of the selected
+* GUI: "Compare presets" compares print or material presets of the selected
   printer only. A dialog that is open when the app goes to the background is cancelled.
-* Post-processing scripts are not available.
+* Post-processing: only shell scripts (no Python, Perl, ...) on Android.
