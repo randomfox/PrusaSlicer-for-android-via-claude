@@ -21,6 +21,7 @@
 #include "Slic3r/Biz/UserAccount/ConnectUtils.hpp"
 #include "Slic3r/Biz/Platform/JobManager/JobManager.hpp"
 #include "Slic3r/Biz/FileLoadingLogic.hpp"
+#include "Slic3r/Biz/Utils/ReleaseMemory.hpp"
 #include <nlohmann/json.hpp>
 #include <boost/nowide/fstream.hpp>
 #include "Slic3r/Version.hpp"
@@ -934,6 +935,8 @@ void ProjectInteractor::remove_project(Domain::SelectionId project_id)
         for (const std::unique_ptr<Domain::BedInstance>& bed_instance :
              config_container->bed_instances())
         {
+            // A pinned G-code preview ignores the empty result remove_bed() sends: drop it here.
+            m_fdm_result_cache.remove_result(Domain::SlicingId{project_id, bed_instance->id().id});
             m_slicing_interactor.remove_bed(bed_instance->id().id);
         }
     }
@@ -959,6 +962,8 @@ void ProjectInteractor::remove_project(Domain::SelectionId project_id)
             select_project(next_selected_project_id);
         }
     }
+    // The project's model, meshes and results are gone and the views switched away from it.
+    Utils::release_free_memory();
 }
 
 namespace {

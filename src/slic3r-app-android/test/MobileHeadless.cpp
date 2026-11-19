@@ -35,6 +35,8 @@
 //   compare [material]     "Compare presets" (print presets, or material presets)
 //   cmd NAME               run a plater command / menu item (e.g. mirror-x)
 //   select_all             select all objects (Ctrl+A)
+//   close_project          close the selected project (discarding changes)
+//   mem [trim]             print the resident memory (trim: after returning free pages)
 //   module plater|preview  switch the shown module
 //   status                 print the slicing status and errors of the selected bed
 //   dump_objects           print the objects and their instances (position, scale)
@@ -70,6 +72,7 @@
 #include <algorithm>
 #include <deque>
 #include <fstream>
+#include <malloc.h>
 #include <sstream>
 #include <string>
 #include <thread>
@@ -441,6 +444,22 @@ int main(int argc, char** argv)
         } else if (cmd == "select_all") {
             std::printf("[headless] select all: %s\n", app.execute_command("select-all") ? "ok" : "unavailable");
             frames(3);
+        } else if (cmd == "close_project") {
+            auto& pi = app.project_interactor();
+            pi.remove_project(pi.selected_project_id());
+            std::printf("[headless] project closed\n");
+        } else if (cmd == "mem") {
+            // Resident memory, after letting the allocator return freed pages.
+            std::string option;
+            if (in >> option && option == "trim") {
+                ::malloc_trim(0); // what the allocator keeps vs. what is in use
+            }
+            std::ifstream status("/proc/self/status");
+            for (std::string l; std::getline(status, l);) {
+                if (l.rfind("VmRSS", 0) == 0) {
+                    std::printf("[headless] mem %s\n", l.c_str());
+                }
+            }
         } else if (cmd == "module") {
             std::string name;
             in >> name;

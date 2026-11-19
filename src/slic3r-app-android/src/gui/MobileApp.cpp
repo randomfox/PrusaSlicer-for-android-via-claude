@@ -1,4 +1,5 @@
 #include "MobileApp.hpp"
+#include "Slic3r/Biz/Utils/ReleaseMemory.hpp"
 #include "Slic3r/App/CommandBindingManager.hpp"
 
 #include <boost/algorithm/string/predicate.hpp>
@@ -102,10 +103,14 @@ bool MobileApp::render_frame()
             open_app_url(url);
         }
     }
-    const bool more = m_canvas->render_frame();
+    bool more = m_canvas->render_frame();
     if (m_dialog_manager != nullptr) {
         m_dialog_manager->collect_closed_webviews();
     }
+    // Deferred release of freed memory (closed project, replaced preview); keep drawing until
+    // it happened, frames are only drawn on demand.
+    Biz::Utils::release_free_memory_after_frame();
+    more = more || Biz::Utils::pending_memory_releases().load() > 0;
     return more;
 }
 

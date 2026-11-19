@@ -35,6 +35,8 @@ public:
         Slicing::FDMResult&& result,
         const Domain::SlicingId id
     ) override;
+    /// Drops the result of a removed bed, a pinned one too.
+    void remove_result(const Domain::SlicingId id);
 
 private:
     std::map<Domain::SlicingId, Slicing::FDMResult> m_results;

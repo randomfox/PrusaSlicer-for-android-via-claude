@@ -1,4 +1,5 @@
 #include "Slic3r/Biz/FDMResultCache.hpp"
+#include "Slic3r/Biz/Utils/ReleaseMemory.hpp"
 #include <ranges>
 #include "fmt/ostream.h"
 
@@ -23,6 +24,7 @@ void FDMResultCache::on_fdm_result_changed(
         }
         m_pinned.erase(id);
     }
+    const bool replaced = m_results.contains(id);
     m_results[id] = std::move(result);
 
     if (m_results[id].const_moves()->empty()) {
@@ -38,6 +40,10 @@ void FDMResultCache::on_fdm_result_changed(
     invoke_listeners<IFDMResultCacheChangedListener>([&](auto* listener) {
         listener->on_fdm_result_cache_changed(id);
     });
+    if (replaced) {
+        // After the listeners (the preview) dropped their references to the previous result.
+        Utils::release_free_memory();
+    }
 }
 
 void FDMResultCache::set_pinned_result(Slicing::FDMResult&& result, const Domain::SlicingId id)
@@ -46,6 +52,17 @@ void FDMResultCache::set_pinned_result(Slicing::FDMResult&& result, const Domain
     on_fdm_result_changed(std::move(result), id);
     if (m_results.contains(id)) {
         m_pinned.insert(id);
+    }
+}
+
+void FDMResultCache::remove_result(const Domain::SlicingId id)
+{
+    m_pinned.erase(id);
+    if (m_results.erase(id) > 0) {
+        invoke_listeners<IFDMResultCacheChangedListener>([&](auto* listener) {
+            listener->on_fdm_result_cache_changed(id);
+        });
+        Utils::release_free_memory();
     }
 }
 
