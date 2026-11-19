@@ -4,7 +4,7 @@ Inventory of what PrusaSlicer 2.9 users had that this 3.x code base does not pro
 (from reading the code; `MCR` = `src/slic3r-shared/src/Slic3r/App/MenuCommandRegistrar.cpp`).
 Shared code (`slic3r-shared`, `libslic3r`) serves both the desktop and the mobile app.
 
-Status: ✅ done in this branch · ⏳ in progress · ☐ open
+Status: ✅ done in this branch · ⏳ in progress · ☐ open · — not done, with the reason
 
 ## Batch 1: small, high value
 | | Feature | Notes |
@@ -26,8 +26,8 @@ Status: ✅ done in this branch · ⏳ in progress · ☐ open
 |---|---|---|
 | ✅ | Standalone G-code viewer (open .gcode/.bgcode) | File > Import > G-code preview; on Android: open a G-code file. Settings from the file, .bgcode converted |
 | ✅ | Sequential printing: extruder clearance collision check | missing in `Print::validate` |
-| ☐ | Sequential arrange (`libseqarrange`) | not built |
-| ☐ | Tool changes / extruder sequence on the layer slider (multi-tool) | disabled upstream on purpose (`ysFIXME-spe3494`, an internal Prusa ticket); slicing still supports the modes |
+| — | Sequential arrange (`libseqarrange`) | deferred: needs the Z3 SMT solver, which is not among the dependencies (would have to be downloaded and built for desktop and Android, and adds tens of MB to the APK); disabled upstream too. Sequential printing itself works, with the clearance check |
+| — | Tool changes / extruder sequence on the layer slider (multi-tool) | left disabled: disabled upstream on purpose (`ysFIXME-spe3494`, an internal Prusa ticket); slicing still supports the modes |
 | ✅ | Auto color change | layers slider cog menu > Set auto color changes (2.x rule: slice area drops by > 25 mm² and 10 %, at most 3); heights computed by the slicer and passed with the result |
 | ✅ | Object info (size, volume, facets, mesh errors) | object context menu > Object info |
 | ✅ | Shape gallery | as object or part/modifier/negative/blocker/enforcer; shapes from `resources/shapes` (not shipped: the 2.x shape files are not in this repo) and the user folder `<data dir>/shapes`, filled by "Add shape from file" |
@@ -37,7 +37,7 @@ Status: ✅ done in this branch · ⏳ in progress · ☐ open
 | ✅ | AMF import | plain and zipped, units, part/modifier/negative/blocker/enforcer volumes, constellation instances; per-object settings are not read |
 | ✅ | Print host upload queue window | main menu > Print host upload queue: uploads of the session with state and progress, cancel an active one, clear finished ones (a list dialog, refreshed on demand) |
 | ✅ | Bonjour "Browse" for printers | search button next to the host field (not tested: no printer on the test network) |
-| ☐ | 2.x profiles: translate `compatible_*_condition` | pinned to one printer model |
+| — | 2.x profiles: translate `compatible_*_condition` | kept as upstream designed it: presets loaded from 2.x files are pinned to the printer, nozzle and layer height they came with, since 2.x condition variables have no 3.x equivalent (a translation would be guesswork) |
 | ✅ | Post-processing scripts on Windows | CreateProcessW like 2.x: .exe/.com directly, .bat/.cmd via cmd.exe, other files via their associated program; SLIC3R_* environment, error output shown. **Not compiled or tested here (no Windows toolchain in this environment)** |
 | ✅ | Legacy 3MF projects without a resolvable printer | the objects load with the default printer and a message names the missing printer |
 | ✅ | Undo of custom G-code / color changes | serialized, slider edits take a snapshot |
