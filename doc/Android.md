@@ -85,6 +85,11 @@ changed needs `ANDROID_NDK_HOME` set (the toolchain file reads it during re-conf
   The app menu can import a script into the app's storage.
 * Printer upload: physical printers (PrusaLink, OctoPrint, ...) and "Send to printer" use the
   shared PrusaSlicer code; curl gets the system CA bundle explicitly (`HttpCurl.cpp`).
+* PrusaSlicer 2.x features ported to the shared code (desktop and mobile) are listed in
+  [Missing-2x-features.md](Missing-2x-features.md). Android specifics: opening a `.gcode` /
+  `.bgcode` file shows it in the G-code viewer, opening an `.ini` file imports it as a config,
+  `.sl1` / `.sl1s` and `.amf` files open as models; save dialogs write into the app's output
+  folder.
 
 ## Building
 
