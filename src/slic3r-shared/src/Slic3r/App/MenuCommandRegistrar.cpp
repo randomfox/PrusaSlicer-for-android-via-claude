@@ -43,6 +43,7 @@
 #include "Slic3r/Biz/OrientationOptimizer.hpp"
 
 #include <boost/filesystem/operations.hpp>
+#include <boost/nowide/fstream.hpp>
 #include "Slic3r/Biz/MeshExportLogic.hpp"
 #include "Slic3r/Biz/VolumeReloadLogic.hpp"
 #include "Slic3r/Biz/Algorithms/BoundingBox.hpp"
@@ -1635,6 +1636,48 @@ void MenuCommandRegistrar::optimize_orientation()
     m_project_interactor.undo_provider().take_snapshot(Biz::UndoSnapshotType::OptimizeOrientation);
 }
 
+void MenuCommandRegistrar::export_wifi_config()
+{
+    // prusa_printer_settings.ini, read by Prusa printers (MK4, XL, MINI, CORE One...) from a USB drive.
+    IDialogManager& dialogs = AppServices::instance().dialog_manager();
+    const std::string title = _u8L("Wi-Fi configuration file");
+    const std::string ssid  = dialogs.show_input_dialog(
+        title,
+        _u8L("Generate a file to be loaded by a Prusa printer to configure its Wi-Fi connection.") + "\n\n" + _u8L("Network name (SSID):"),
+        ""
+    );
+    if (ssid.empty()) {
+        return;
+    }
+    const std::string password = dialogs.show_input_dialog(title, _u8L("Password:"), "");
+    if (ssid.find_first_of("\r\n") != std::string::npos || password.find_first_of("\r\n") != std::string::npos) {
+        dialogs.show_error_dialog(_u8L("The network name and the password cannot contain line breaks."), title);
+        return;
+    }
+    IDialogManager::FileCallback callback = [ssid, password, title](bool success, const std::vector<boost::filesystem::path>& paths)
+    {
+        if (!success || paths.empty()) {
+            return;
+        }
+        boost::nowide::ofstream file(paths.front().string(), std::ios::binary);
+        file << "[wifi]\nssid = " << ssid << "\npsk = " << password << "\n";
+        file.close();
+        IDialogManager& dialogs = AppServices::instance().dialog_manager();
+        if (!file) {
+            dialogs.show_error_dialog(_u8L("The file could not be written."), title);
+        } else {
+            dialogs.show_info_dialog(
+                _u8L("Copy the file to the root of a USB drive and insert it into the printer: it loads the settings on start-up."),
+                title
+            );
+        }
+    };
+    dialogs.show_file_dialog(
+        FileDialogType::Save, title, this->default_dialog_folder(), "prusa_printer_settings.ini",
+        Wildcards::generate_wildcards(Wildcards::TypeFlag::Ini, Wildcards::TypeFlag::Ini), callback
+    );
+}
+
 void MenuCommandRegistrar::show_print_host_queue()
 {
     using Biz::PrintHost::UploadRecord;
@@ -2366,6 +2409,11 @@ void MenuCommandRegistrar::register_main_menu_config_commands()
             CommandName::PresetReposManagement,
             [this]() { m_navigator.set_modal_dialog(ModalDialog::PresetUpdater); }
         )
+    );
+    // Menu -> Configuration -> Wi-Fi configuration file (2.x)
+    m_menu_manager.register_menu_item(
+        {MenuItemName::MainMenu, MenuItemName::Configuration, MenuItemName::WifiConfigFile},
+        std::make_unique<UIItemCommand>("wifi-config-file", [this]() { export_wifi_config(); })
     );
 }
 

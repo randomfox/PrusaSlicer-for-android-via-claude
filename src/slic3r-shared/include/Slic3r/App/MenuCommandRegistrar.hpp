@@ -115,6 +115,7 @@ private:
     void show_object_info();
     void optimize_orientation();
     void show_print_host_queue();
+    void export_wifi_config();
     void show_keyboard_shortcuts();
 
     void replace_selected_volume_with_stl();

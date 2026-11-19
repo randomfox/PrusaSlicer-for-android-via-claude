@@ -48,6 +48,7 @@ enum class MenuItemName
     CheckConfigUpdates,
     CheckAppUpdates,
     FlashPrinterFirmware,
+    WifiConfigFile,
 
     Help,
     PSWebsite,

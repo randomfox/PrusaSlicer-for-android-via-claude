@@ -175,6 +175,7 @@ set(SLIC3R_SOURCES
     #src/libslic3r/Format/PrintRequest.cpp
     #src/libslic3r/Format/PrintRequest.cpp
     src/libslic3r/Format/SL1.cpp
+    src/libslic3r/Format/SL1Import.cpp
     src/libslic3r/Format/SL1.hpp
     src/libslic3r/Format/SL1_SVG.cpp
     src/libslic3r/Format/SL1_SVG.hpp
@@ -418,6 +419,7 @@ set(SLIC3R_PUBLIC_HEADERS
     include/libslic3r/IPrint.hpp
     include/libslic3r/InitPrint.hpp
     include/libslic3r/GCodeProcessorConfig.hpp
+    include/libslic3r/SLAArchiveImport.hpp
     include/libslic3r/PrintSteps.hpp
     include/libslic3r/SerializedConfig.hpp
     include/libslic3r/SLAResult.hpp
