@@ -46,6 +46,9 @@ struct ProcessorResult
 
     PrintSettings print_settings;
     std::optional<std::pair<std::string, std::string>> sequential_collision_detected;
+    // Heights where the slice area of an object drops noticeably (signs, lithophanes): the
+    // layers slider's "Set auto color changes" puts color changes there.
+    std::vector<float> auto_color_change_heights;
     bool contained_in_bed{ true };
 
     uint32_t id() const;

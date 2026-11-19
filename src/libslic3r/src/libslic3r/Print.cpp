@@ -1,5 +1,6 @@
 #include "Slic3r/Biz/Algorithms/FacetsAnnotation.hpp"
 #include "Slic3r/Biz/Algorithms/LayerHeight.hpp"
+#include "Slic3r/Biz/Algorithms/ExPolygon.hpp"
 #include "Slic3r/Biz/Algorithms/Polygon.hpp"
 #include "Slic3r/Biz/Algorithms/VirtualExtruder.hpp"
 #include "Slic3r/Domain/TriangleSelector.hpp"
@@ -49,6 +50,36 @@
 using namespace Slic3r::Biz;
 
 namespace Slic3r {
+
+namespace {
+// 2.x TickCodeManager::auto_color_change(): a color change where the slice area of an object
+// drops by more than 25 mm2 and 10 %, at most 3 of them.
+std::vector<float> auto_color_change_heights(const Print& print)
+{
+    const double min_delta_area = scale_(scale_(25.));
+    std::vector<float> heights;
+    for (const PrintObject* object : print.objects()) {
+        const auto layers = object->layers();
+        if (layers.size() < 2) {
+            continue;
+        }
+        double prev_area = Biz::Algorithms::ExPolygon::area(layers[0]->lslices);
+        for (size_t i = 1; i < layers.size(); ++i) {
+            const double cur_area = Biz::Algorithms::ExPolygon::area(layers[i]->lslices);
+            if (prev_area - cur_area > min_delta_area && cur_area / prev_area < 0.9) {
+                heights.push_back(float(layers[i]->print_z));
+            }
+            prev_area = cur_area;
+        }
+    }
+    std::sort(heights.begin(), heights.end());
+    heights.erase(std::unique(heights.begin(), heights.end(), [](float a, float b) { return std::abs(a - b) < 1e-4f; }), heights.end());
+    if (heights.size() > 3) {
+        heights.resize(3);
+    }
+    return heights;
+}
+} // namespace
 
 using SlicingSync::PrintAndObjectSteps;
 using ParserConfig = Biz::Parser::IO::Config;
@@ -1697,6 +1728,7 @@ void Print::slice(
     m_on_fdm_result(m_pre_preview->generate_result());
     Biz::libpgcode::ProcessorResult result{this->process_gcode()};
     result.contained_in_bed = check_result(result, config(), append_warning_callback);
+    result.auto_color_change_heights = auto_color_change_heights(*this);
 
     m_on_fdm_result(std::move(result));
 }

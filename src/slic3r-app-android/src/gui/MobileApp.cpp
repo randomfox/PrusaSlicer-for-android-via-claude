@@ -1,4 +1,5 @@
 #include "MobileApp.hpp"
+#include "Slic3r/App/CommandBindingManager.hpp"
 
 #include <boost/algorithm/string/predicate.hpp>
 
@@ -116,11 +117,14 @@ bool MobileApp::execute_command(const std::string& name)
         if (module == nullptr) {
             continue;
         }
-        const auto& commands = module->commands();
-        const auto it        = commands.find(name);
-        if (it != commands.end() && it->second && it->second->enabled()) {
-            it->second->execute();
-            return true;
+        // Menu commands, then the ones bound to keys (e.g. the layers slider's).
+        for (const auto* commands :
+             {&module->commands(), &module->command_binding_manager().main_command_registry().commands()}) {
+            const auto it = commands->find(name);
+            if (it != commands->end() && it->second && it->second->enabled()) {
+                it->second->execute();
+                return true;
+            }
         }
     }
     return false;

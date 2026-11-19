@@ -35,6 +35,7 @@
 //   compare [material]     "Compare presets" (print presets, or material presets)
 //   cmd NAME               run a plater command / menu item (e.g. mirror-x)
 //   select_all             select all objects (Ctrl+A)
+//   module plater|preview  switch the shown module
 //   status                 print the slicing status and errors of the selected bed
 //   dump_objects           print the objects and their instances (position, scale)
 //   text STRING            type text
@@ -46,6 +47,7 @@
 
 #include "Slic3r/App/AppConfig.hpp"
 #include "Slic3r/App/AppServices.hpp"
+#include "Slic3r/App/Navigator.hpp"
 #include "Slic3r/App/IDialogManager.hpp"
 #include "Slic3r/Log.hpp"
 #include "Slic3r/Biz/ProjectInteractor.hpp"
@@ -439,6 +441,13 @@ int main(int argc, char** argv)
         } else if (cmd == "select_all") {
             std::printf("[headless] select all: %s\n", app.execute_command("select-all") ? "ok" : "unavailable");
             frames(3);
+        } else if (cmd == "module") {
+            std::string name;
+            in >> name;
+            Slic3r::App::AppServices::instance().navigator().navigate_to_module_type(
+                name == "preview" ? Slic3r::App::Render::ModuleType::Preview : Slic3r::App::Render::ModuleType::Plater
+            );
+            std::printf("[headless] module %s\n", name.c_str());
         } else if (cmd == "status") {
             auto& pi       = app.project_interactor();
             const auto id  = pi.selected_bed_slicing_id();

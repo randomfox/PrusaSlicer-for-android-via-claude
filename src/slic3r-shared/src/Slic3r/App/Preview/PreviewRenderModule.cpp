@@ -17,6 +17,7 @@
 #include "Slic3r/App/ThumbnailStoreUpdater.hpp"
 #include "Slic3r/App/Platform/AnimationManager.hpp"
 #include "Slic3r/App/AppServices.hpp"
+#include "Slic3r/App/IDialogManager.hpp"
 #include "Slic3r/App/Scene/CameraHelper.hpp"
 #include "Slic3r/App/RenderModuleHelper.hpp"
 #include "Slic3r/App/SidebarStackLayout.hpp"
@@ -1312,16 +1313,25 @@ void PreviewRenderModule::on_slider_layers_ticks_changed()
 
 bool PreviewRenderModule::on_slider_layers_auto_color_change()
 {
-    // TODO collect data from print config and objects, and update layers slider ticks
-    // See:
-    // master:                TickCodeManager::auto_color_change()
-    // lm_processor_squashed: Preview::layers_slider_auto_color_changed_callback()
+    // The heights come with the slicing result (Print: where an object's slice area drops).
+    const std::optional<Biz::FDMResultRef> fdm_result{
+        m_project_interactor.fdm_result_cache().get_result(m_project_interactor.selected_bed_slicing_id())
+    };
+    if (!fdm_result.has_value()) {
+        return false;
+    }
+    for (const float print_z : fdm_result->get().auto_color_change_heights) {
+        m_slider_layers->add_auto_color_change(print_z, int(fdm_result->get().extruders_count));
+    }
     return true;
 }
 
 void PreviewRenderModule::on_slider_layers_notify_empty_auto_color_change()
 {
-    // TODO -> fire notification PopNotificationType::EmptyAutoColorChange
+    AppServices::instance().dialog_manager().show_info_dialog(
+        _u8L("No color change was added: no layer of the objects is noticeably smaller than the one below it."),
+        _u8L("Set auto color changes")
+    );
 }
 
 void PreviewRenderModule::on_slider_layers_notify_empty_color_change_gcode()

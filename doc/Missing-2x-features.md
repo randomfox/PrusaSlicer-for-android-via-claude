@@ -28,7 +28,7 @@ Status: ✅ done in this branch · ⏳ in progress · ☐ open
 | ✅ | Sequential printing: extruder clearance collision check | missing in `Print::validate` |
 | ☐ | Sequential arrange (`libseqarrange`) | not built |
 | ☐ | Tool changes / extruder sequence on the layer slider (multi-tool) | disabled upstream on purpose (`ysFIXME-spe3494`, an internal Prusa ticket); slicing still supports the modes |
-| ☐ | Auto color change | stub |
+| ✅ | Auto color change | layers slider cog menu > Set auto color changes (2.x rule: slice area drops by > 25 mm² and 10 %, at most 3); heights computed by the slicer and passed with the result |
 | ✅ | Object info (size, volume, facets, mesh errors) | object context menu > Object info |
 | ✅ | Shape gallery | as object or part/modifier/negative/blocker/enforcer; shapes from `resources/shapes` (not shipped: the 2.x shape files are not in this repo) and the user folder `<data dir>/shapes`, filled by "Add shape from file" |
 | ✅ | Import / export config (.ini), load config from G-code | File > Import > Import config (.ini, .gcode, .bgcode, 3.x .json) opens a new project with those presets and a copy of the objects; File > Export > Export config (.ini or .json). On Android, opening an .ini imports it |

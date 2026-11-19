@@ -67,6 +67,7 @@ void ProcessorResult::reset()
     m_moves = std::make_shared<MoveVertices>();
     extruder_str_colors.clear();
     custom_gcode_per_print_z.clear();
+    auto_color_change_heights.clear();
     print_statistics = {};
     print_settings.reset();
 }

@@ -143,8 +143,10 @@ void TickCodeManager::add_auto_color_change(CustomGCode::Mode main_mode, const i
     if (tick >= 0 && !has_tick(tick)) {
         if (main_mode == CustomGCode::Mode::SingleExtruder) {
             set_use_default_colors(true);
-            std::string color = color_for_tick(TickCode{ tick }, CustomGCode::Type::ColorChange, -1);
-            add_color_change_tick(tick, color, -1, print_z);
+            // As a color change added by hand: on the only extruder (3.x requires a valid one).
+            const int extruder = std::max<int>(1, only_extruder_id);
+            std::string color  = color_for_tick(TickCode{ tick }, CustomGCode::Type::ColorChange, extruder);
+            add_color_change_tick(tick, color, extruder, print_z);
         }
         else {
             int extruder = 2;

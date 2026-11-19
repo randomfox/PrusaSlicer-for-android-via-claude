@@ -199,8 +199,6 @@ void DoubleSliderForLayers::create_cog_menu(Item* parent)
         }
     };
 
-    // Auto color change functionality isn't implemented for now
-    return;
     m_auto_color_change_menu_item = m_cog_menu->append_item(_u8L("Set auto color changes"));
     m_auto_color_change_menu_item->callbacks().action = [this]() { auto_color_change(); };
 }
@@ -591,6 +589,12 @@ void DoubleSliderForLayers::register_commands(
                                 Platform::KeyboardShortcut{0, Platform::KeyCode::KpPlus}
                             }
                     }
+                )
+            )
+            .register_command(
+                std::make_unique<Platform::FuncCommand>(
+                    "slider-layers-auto-color-change",
+                    [this]() { auto_color_change(); }
                 )
             )
             .register_command(

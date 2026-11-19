@@ -88,6 +88,7 @@ public:
 
     bool has_ticks() const { return !m_ticks.empty(); }
     void clear_ticks() { m_ticks.ticks.clear(); }
+    void add_auto_color_change(float print_z, int extruders_cnt) { m_ticks.add_auto_color_change(m_mode, extruders_cnt, print_z); }
 
     bool is_auto_color_change_completed() const {
         // allow max 3 auto color changes
