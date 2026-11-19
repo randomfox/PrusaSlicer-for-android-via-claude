@@ -32,7 +32,7 @@ Status: ✅ done in this branch · ⏳ in progress · ☐ open
 | ✅ | Object info (size, volume, facets, mesh errors) | object context menu > Object info |
 | ✅ | Shape gallery | as object or part/modifier/negative/blocker/enforcer; shapes from `resources/shapes` (not shipped: the 2.x shape files are not in this repo) and the user folder `<data dir>/shapes`, filled by "Add shape from file" |
 | ✅ | Import / export config (.ini), load config from G-code | File > Import > Import config (.ini, .gcode, .bgcode, 3.x .json) opens a new project with those presets and a copy of the objects; File > Export > Export config (.ini or .json). On Android, opening an .ini imports it |
-| ☐ | Custom G-code editor with placeholder list | plain text fields |
+| ✅ | Custom G-code editor with placeholder list | "{ }" button next to each custom G-code field: G-code specific placeholders, slicing states, statistics, then all settings; inserts at the end (no caret position available) |
 | ☐ | Optimize orientation | algorithm not ported |
 | ✅ | AMF import | plain and zipped, units, part/modifier/negative/blocker/enforcer volumes, constellation instances; per-object settings are not read |
 | ☐ | Print host upload queue window | notifications only |

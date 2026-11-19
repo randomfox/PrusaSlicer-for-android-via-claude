@@ -357,6 +357,8 @@ set(SLIC3R_SHARED_FILES
 
         include/Slic3r/App/Config/ConfigItemTextField.hpp
         src/Slic3r/App/Config/ConfigItemTextField.cpp
+        include/Slic3r/App/Config/GCodePlaceholders.hpp
+        src/Slic3r/App/Config/GCodePlaceholders.cpp
         include/Slic3r/App/Config/ConfigItemCheckBox.hpp
         src/Slic3r/App/Config/ConfigItemCheckBox.cpp
         include/Slic3r/App/Config/ConfigItemComboBox.hpp

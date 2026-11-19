@@ -9,6 +9,8 @@
 #include "Slic3r/App/Config/ConfigItemSpinBox.hpp"
 #include "Slic3r/App/Config/ConfigRowItemLabel.hpp"
 #include "Slic3r/App/AppServices.hpp"
+#include "Slic3r/App/IDialogManager.hpp"
+#include "Slic3r/App/Config/GCodePlaceholders.hpp"
 
 #include "Slic3r/Biz/IConfigBoxSetter.hpp"
 #include <Slic3r/Biz/I18N/I18N.hpp>
@@ -60,6 +62,16 @@ ConfigRowItem::ConfigRowItem(
     m_revert_button->set_flex_shrink(0.f);
     m_revert_button->callbacks().action = [this]()
     { m_cb_setter.discard_item_changes(*m_state, m_cbi_index); };
+
+    // 2.x "Edit custom G-code": pick a placeholder to insert.
+    m_placeholder_button = m_left_side->emplace_back<LayoutButton>(
+        std::string{"{ }"}, Render::Icon::None, Biz::_u8L("Insert a placeholder")
+    );
+    m_placeholder_button->set_background_color(Platform::Color::ButtonTransparent);
+    m_placeholder_button->set_self_align(YGAlignCenter);
+    m_placeholder_button->set_flex_shrink(0.f);
+    m_placeholder_button->set_visible(false);
+    m_placeholder_button->callbacks().action = [this]() { insert_placeholder(); };
 
     m_label->set_width(m_force_label.has_value() ? 90 : 175);
     m_left_side->set_max_width(175);
@@ -163,6 +175,10 @@ void ConfigRowItem::on_data_update()
 
     m_control->set_state(*m_state);
 
+    m_placeholder_button->set_visible(
+        *m_state->def().type == typeid(std::string) && m_state->def().multiline && is_custom_gcode_key(m_state->def().name)
+    );
+
     const bool can_revert = m_enable_revert();
     m_revert_button->set_visible(can_revert);
     m_label->set_label_color(
@@ -171,6 +187,36 @@ void ConfigRowItem::on_data_update()
 
     m_label->label_object()->set_strikethrough(
         m_effective_value_status == Biz::EffectiveValueStatus::Overriden);
+}
+
+void ConfigRowItem::insert_placeholder()
+{
+    const std::vector<std::pair<std::string, std::string>> placeholders = gcode_placeholders(m_state->def().name);
+    std::vector<std::string> values;
+    values.reserve(placeholders.size());
+    for (const auto& [name, description] : placeholders) {
+        // First sentence (not cut at "i.e.").
+        std::string short_description = description.substr(0, std::min(description.find(". "), description.find('\n')));
+        if (short_description.size() > 70) {
+            short_description = short_description.substr(0, 67) + "...";
+        }
+        values.push_back(short_description.empty() ? name : name + " - " + short_description);
+    }
+    const std::string chosen = AppServices::instance().dialog_manager().show_combo_dialog(
+        Biz::_u8L("Insert a placeholder"),
+        Biz::_u8L("The value is inserted at the end of the G-code, e.g. {layer_z}:"),
+        values
+    );
+    if (chosen.empty()) {
+        return;
+    }
+    const std::string name = chosen.substr(0, chosen.find(" - "));
+    std::string text = m_state->value().get<std::string>();
+    if (!text.empty() && text.back() != '\n' && text.back() != ' ') {
+        text += ' ';
+    }
+    text += "{" + name + "}";
+    m_cb_setter.set_item_value(*m_state, Domain::ConfigValue{text}, {m_cbi_index});
 }
 
 void ConfigRowItem::navigate_to_item(const Domain::ConfigItem* config_item)

@@ -43,6 +43,11 @@ public:
     );
 
     void navigate_to_item(const Domain::ConfigItem* config_item) override;
+
+private:
+    void insert_placeholder();
+
+public:
     void clear_navigation() override;
 
     void set_label_text_color(const ImColor& color);
@@ -64,6 +69,7 @@ private:
     Yoga::Item* m_left_side{nullptr};
     ConfigRowItemLabel* m_label{nullptr};
     Yoga::LayoutButton* m_revert_button{nullptr};
+    Yoga::LayoutButton* m_placeholder_button{nullptr}; // custom G-code: insert a placeholder
     Yoga::Item* m_input{nullptr};
     Yoga::ToggleButton* m_toggle_enable{nullptr};
 
