@@ -117,6 +117,7 @@ enum class MenuItemName
     SplitObjectToVolumes,
     ScaleToPrintVolume,
     ObjectInfo,
+    OptimizeOrientation,
     MirrorObject,
     MirrorObjectX,
     MirrorObjectY,

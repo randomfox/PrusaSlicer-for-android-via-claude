@@ -113,6 +113,7 @@ private:
     void show_about();
     void show_system_info();
     void show_object_info();
+    void optimize_orientation();
     void show_print_host_queue();
     void show_keyboard_shortcuts();
 

@@ -40,6 +40,7 @@
 #include "Slic3r/Biz/Format/3mf.hpp"
 #include "Slic3r/Biz/Algorithms/Point.hpp"
 #include "Slic3r/Biz/FileLoadingLogic.hpp"
+#include "Slic3r/Biz/OrientationOptimizer.hpp"
 
 #include <boost/filesystem/operations.hpp>
 #include "Slic3r/Biz/MeshExportLogic.hpp"
@@ -636,6 +637,12 @@ void MenuCommandRegistrar::register_object_menu_commands()
             UIItemCommandExtraOpts{
                 .enabled = [this]() { return !m_project_interactor.scene_interactor().object_selection().empty(); }
             }
+        )
+        .append_item(
+            MenuItemName::OptimizeOrientation,
+            "optimize-orientation",
+            [this]() { optimize_orientation(); },
+            UIItemCommandExtraOpts{.enabled = [this]() { return m_project_interactor.scene_interactor().object_selection().only_single_object(); }}
         )
         .append_item(
             MenuItemName::ObjectInfo,
@@ -1576,6 +1583,56 @@ void MenuCommandRegistrar::show_system_info()
         _u8L("Resources directory"), Slic3r::resources_dir()
     );
     AppServices::instance().dialog_manager().show_info_dialog(text, _u8L("System Information"));
+}
+
+void MenuCommandRegistrar::optimize_orientation()
+{
+    auto& scene           = m_project_interactor.scene_interactor();
+    const auto& selection = scene.object_selection();
+    if (!selection.only_single_object()) {
+        return;
+    }
+    const Domain::ElementRef& element = selection.elements.front();
+    const Domain::Project& project    = m_project_interactor.selected_project();
+    const Domain::ModelObject* object = project.find_object_by_id(element.object_id);
+    const Domain::ModelInstance* instance = project.find_instance_by_id(element.object_id, element.instance_id);
+    if (object == nullptr) {
+        return;
+    }
+    if (instance == nullptr && !object->instances.empty()) {
+        instance = object->instances.front();
+    }
+    if (instance == nullptr) {
+        return;
+    }
+    std::vector<const indexed_triangle_set*> meshes;
+    std::vector<Domain::Transform3d> transformations;
+    for (const Domain::ModelVolume* volume : object->volumes) {
+        if (volume->is_model_part()) {
+            meshes.push_back(&volume->mesh().its);
+            transformations.push_back(instance->get_matrix() * volume->get_matrix());
+        }
+    }
+    const std::optional<Biz::OrientationResult> result = Biz::optimize_orientation(meshes, transformations);
+    if (!result) {
+        AppServices::instance().dialog_manager().show_info_dialog(
+            _u8L("The current orientation is already the one needing the least support."), _u8L("Optimize orientation")
+        );
+        return;
+    }
+    const std::optional<Biz::Scene::SelectionExtents> extents = scene.selection_bounding_box();
+    if (!extents) {
+        return;
+    }
+    // Rotate the found direction to point down, around the object's center, then onto the bed.
+    const Domain::Vec3d center = extents->oriented_bounding_box().center;
+    const Eigen::Quaterniond rotation = Eigen::Quaterniond::FromTwoVectors(result->down, Domain::Vec3d(0., 0., -1.));
+    Domain::Transform3d transform{Domain::Transform3d::Identity()};
+    transform.translate(center);
+    transform.rotate(rotation);
+    transform.translate(-center);
+    scene.transform_selection(transform.matrix(), true);
+    m_project_interactor.undo_provider().take_snapshot(Biz::UndoSnapshotType::OptimizeOrientation);
 }
 
 void MenuCommandRegistrar::show_print_host_queue()

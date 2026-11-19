@@ -1208,6 +1208,8 @@ set(SLIC3R_SHARED_FILES
 
         include/Slic3r/Biz/FileLoadingLogic.hpp
         src/Slic3r/Biz/FileLoadingLogic.cpp
+        include/Slic3r/Biz/OrientationOptimizer.hpp
+        src/Slic3r/Biz/OrientationOptimizer.cpp
         include/Slic3r/Biz/FileOpen/ArchiveEntry.hpp
         include/Slic3r/Biz/FileOpen/FileOpeningInteractor.hpp
         src/Slic3r/Biz/FileOpen/FileOpeningInteractor.cpp

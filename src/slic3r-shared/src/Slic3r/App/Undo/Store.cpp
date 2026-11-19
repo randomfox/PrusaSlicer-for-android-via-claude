@@ -93,6 +93,8 @@ static std::string to_string(Biz::UndoSnapshotType type)
         return _u8L("Edit color changes / custom G-codes");
     case Type::ScaleToPrintVolume:
         return _u8L("Scale to print volume");
+    case Type::OptimizeOrientation:
+        return _u8L("Optimize orientation");
     case Type::PlaceOnFace:
         return _u8L("Place on face");
     case Type::Arrange:

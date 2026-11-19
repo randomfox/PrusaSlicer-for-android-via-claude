@@ -205,6 +205,8 @@ std::string MenuBuilder::item_name_translated(UniversalMenuItemName menu_item_na
                     return Biz::_u8L("To parts");
                 case MenuItemName::ScaleToPrintVolume:
                     return Biz::_u8L("Scale to print volume");
+                case MenuItemName::OptimizeOrientation:
+                    return Biz::_u8L("Optimize orientation");
                 case MenuItemName::ObjectInfo:
                     return Biz::_u8L("Object info") + "...";
                 case MenuItemName::MirrorObject:

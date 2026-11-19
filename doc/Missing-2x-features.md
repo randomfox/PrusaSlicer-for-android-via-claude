@@ -33,7 +33,7 @@ Status: ✅ done in this branch · ⏳ in progress · ☐ open
 | ✅ | Shape gallery | as object or part/modifier/negative/blocker/enforcer; shapes from `resources/shapes` (not shipped: the 2.x shape files are not in this repo) and the user folder `<data dir>/shapes`, filled by "Add shape from file" |
 | ✅ | Import / export config (.ini), load config from G-code | File > Import > Import config (.ini, .gcode, .bgcode, 3.x .json) opens a new project with those presets and a copy of the objects; File > Export > Export config (.ini or .json). On Android, opening an .ini imports it |
 | ✅ | Custom G-code editor with placeholder list | "{ }" button next to each custom G-code field: G-code specific placeholders, slicing states, statistics, then all settings; inserts at the end (no caret position available) |
-| ☐ | Optimize orientation | algorithm not ported |
+| ✅ | Optimize orientation | object context menu; new optimizer (2.x Rotfinder was not in the code base): least overhang area (> 45°, not on the bed), flat bed contact rewarded, lower height as tie-break; FDM and SLA |
 | ✅ | AMF import | plain and zipped, units, part/modifier/negative/blocker/enforcer volumes, constellation instances; per-object settings are not read |
 | ✅ | Print host upload queue window | main menu > Print host upload queue: uploads of the session with state and progress, cancel an active one, clear finished ones (a list dialog, refreshed on demand) |
 | ✅ | Bonjour "Browse" for printers | search button next to the host field (not tested: no printer on the test network) |

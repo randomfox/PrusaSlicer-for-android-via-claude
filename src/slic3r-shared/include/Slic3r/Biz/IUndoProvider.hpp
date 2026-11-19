@@ -21,6 +21,7 @@ enum class UndoSnapshotType
     Mirror,
     EditCustomGCodes,
     ScaleToPrintVolume,
+    OptimizeOrientation,
     PlaceOnFace,
     Arrange,
     Cut,
