@@ -39,7 +39,7 @@ Status: ✅ done in this branch · ⏳ in progress · ☐ open
 | ✅ | Bonjour "Browse" for printers | search button next to the host field (not tested: no printer on the test network) |
 | ☐ | 2.x profiles: translate `compatible_*_condition` | pinned to one printer model |
 | ☐ | Post-processing scripts on Windows | done for Linux, macOS and Android (this branch) |
-| ☐ | Legacy 3MF projects without a resolvable printer | load empty |
+| ✅ | Legacy 3MF projects without a resolvable printer | the objects load with the default printer and a message names the missing printer |
 | ✅ | Undo of custom G-code / color changes | serialized, slider edits take a snapshot |
 | — | Per-project filament colour | intentionally hidden upstream; the sidebar colour picker (`extruder_colour`) covers it |
 

@@ -294,6 +294,9 @@ struct Loaded3MF {
     std::vector<Loaded3MF::ConfigContainerData> config_containers_data;
     Read3mfIssues issues_map;
     boost::optional<Slic3r::Semver> version;
+    // 2.x project whose printer is not in the installed profiles: why, and the printer model.
+    std::string legacy_printer_error;
+    std::string legacy_printer_model;
 };
 
 

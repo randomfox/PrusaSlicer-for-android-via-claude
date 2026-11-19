@@ -669,10 +669,11 @@ static Loaded3MF load_legacy_project(const std::string& file_path, OptionalPrese
         auto result = resolve_legacy_preset(hw_printer, config_pack, bundle->get());
         if (result.has_value()) {
             loaded_3mf.config_containers_data.front().preset = std::move(result.value());
-        } else
-            throw Loaded3MFException(
-                Read3mfIssue(Read3mfIssueType::legacy_loader_failed, result.error())
-            );
+        } else {
+            // Keep the objects: they are loaded with the current printer (convert_to_project()).
+            loaded_3mf.legacy_printer_error = result.error();
+            loaded_3mf.legacy_printer_model = hw_printer.printer_model.empty() ? hw_printer.printer_settings_id : hw_printer.printer_model;
+        }
     }
     //
     // This will provide enough info to create a complete Preset further down the road.
@@ -1045,14 +1046,23 @@ static Project convert_to_project(Loaded3MF&& loaded_3mf, IMessageDialogProvider
     }
 
     if (loaded_3mf.config_containers_data.front().preset.hw_config.id.empty()) {
-        // If we are here, then legacy project was loaded.
-        // Implementation of the config loading is not completed jet, so we can't create a correct project
+        // A PrusaSlicer 2.x project whose printer is not in the installed profiles (e.g. a custom
+        // printer): load the objects, the project gets the default printer.
         if (dialog_provider) {
+            const std::string printer = loaded_3mf.legacy_printer_model.empty() ? _u8L("unknown") : loaded_3mf.legacy_printer_model;
             dialog_provider->show_info_dialog(
-                "Loading legacy 3MF projects is not supported yet.",
-                "Load legacy 3mf file."
+                fmt::format(
+                    "{}\n\n{}: {}",
+                    _u8L("The printer of this PrusaSlicer 2.x project was not found in the installed printer profiles. "
+                         "The objects were loaded, please select the printer and the settings."),
+                    _u8L("Printer"), printer
+                ),
+                _u8L("Loading 3MF file")
             );
         }
+        project.set_metadata(loaded_3mf.metadata);
+        project.set_file_path(loaded_3mf.filepath_3mf);
+        project.model() = std::move(loaded_3mf.model);
         return project;
     }
 
