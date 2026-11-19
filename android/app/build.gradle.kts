@@ -60,8 +60,10 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
-            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"))
+            // R8: removes unused library code (classes.dex 8.8 MB before) and unused resources.
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             // No release signing configured: sign with the debug key so the APK installs.
             signingConfig = signingConfigs.getByName("debug")
         }
