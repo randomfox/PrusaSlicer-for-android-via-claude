@@ -45,6 +45,7 @@
 
 #include <boost/filesystem/operations.hpp>
 #include <boost/nowide/fstream.hpp>
+#include <ctime>
 #if defined(__linux__) && !defined(__ANDROID__)
 #include <boost/dll/runtime_symbol_info.hpp>
 #include <cstdlib>
@@ -1753,6 +1754,29 @@ void MenuCommandRegistrar::register_url_scheme()
 #endif
 }
 
+void MenuCommandRegistrar::show_tip_of_the_day()
+{
+    static const std::vector<std::string> tips{
+        _u8L("Optimize orientation (object menu) turns an object so that it needs the least support."),
+        _u8L("Fill bed with instances (object menu) adds as many copies as fit on the bed."),
+        _u8L("Set auto color changes (layers slider menu) adds color changes where an object gets smaller, e.g. the text of a sign."),
+        _u8L("The \"{ }\" button next to a custom G-code field inserts placeholders such as {layer_z}."),
+        _u8L("Import config (File > Import) opens the settings of a PrusaSlicer 2.x .ini file or G-code with a copy of your objects."),
+        _u8L("Click a setting's name to see where its value comes from."),
+        _u8L("Object info (object menu) shows the size, volume and mesh errors of an object."),
+        _u8L("The shape gallery keeps the models you use often; add them with \"Add shape from file\"."),
+        _u8L("Export toolpaths as OBJ (File > Export, in the preview) saves the G-code as a 3D model."),
+        _u8L("Take a configuration snapshot (Configuration menu) before experimenting with your presets."),
+        _u8L("Post-processing scripts get the G-code path as their argument and all settings as SLIC3R_* environment variables."),
+        _u8L("Open a .gcode or .bgcode file to preview it, with the settings stored in the file."),
+        _u8L("Mirror (object menu) flips an object along X, Y or Z."),
+        _u8L("Scale to print volume (object menu) makes an object as large as the printer allows."),
+    };
+    static size_t next = size_t(std::time(nullptr)) % tips.size();
+    const std::string tip = tips[next++ % tips.size()];
+    AppServices::instance().dialog_manager().show_info_dialog(tip, _u8L("Tip of the day"));
+}
+
 void MenuCommandRegistrar::export_wifi_config()
 {
     // prusa_printer_settings.ini, read by Prusa printers (MK4, XL, MINI, CORE One...) from a USB drive.
@@ -2656,19 +2680,11 @@ void MenuCommandRegistrar::register_main_menu_help_commands()
             {MenuItemName::MainMenu, MenuItemName::Help, MenuItemName::KeyboardShortcutsDialog},
             std::make_unique<UIItemCommand>(CommandName::KeyboardShortcutsDialog, [this]() { show_keyboard_shortcuts(); })
         )
-#ifdef SHOW_NOT_IMPLEMENTED_ITEMS
         // Menu -> Help -> Tip Of The Day
         .register_menu_item(
             {MenuItemName::MainMenu, MenuItemName::Help, MenuItemName::TipOfTheDay},
-            std::make_unique<UIItemCommand>(
-                CommandName::TipOfTheDay,
-                [this]()
-                {
-                    // TODO: Implement tip of the day functionality
-                }
-            )
+            std::make_unique<UIItemCommand>(CommandName::TipOfTheDay, [this]() { show_tip_of_the_day(); })
         )
-#endif
         ;
 }
 
