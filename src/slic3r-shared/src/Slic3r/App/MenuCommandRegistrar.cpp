@@ -45,6 +45,10 @@
 
 #include <boost/filesystem/operations.hpp>
 #include <boost/nowide/fstream.hpp>
+#if defined(__linux__) && !defined(__ANDROID__)
+#include <boost/dll/runtime_symbol_info.hpp>
+#include <cstdlib>
+#endif
 #include "Slic3r/Biz/MeshExportLogic.hpp"
 #include "Slic3r/Biz/VolumeReloadLogic.hpp"
 #include "Slic3r/Biz/Algorithms/BoundingBox.hpp"
@@ -1687,6 +1691,68 @@ void MenuCommandRegistrar::show_config_snapshots()
     }
 }
 
+void MenuCommandRegistrar::register_url_scheme()
+{
+#if defined(__linux__) && !defined(__ANDROID__)
+    IDialogManager& dialogs = AppServices::instance().dialog_manager();
+    const std::string title = _u8L("Open prusaslicer:// links in PrusaSlicer");
+    // The AppImage, when running from one, else this executable.
+    std::string executable;
+    if (const char* appimage = std::getenv("APPIMAGE"); appimage != nullptr && *appimage != 0) {
+        executable = appimage;
+    } else {
+        boost::system::error_code ec;
+        executable = boost::dll::program_location(ec).string();
+    }
+    const char* home = std::getenv("HOME");
+    if (executable.empty() || home == nullptr) {
+        dialogs.show_error_dialog(_u8L("The location of PrusaSlicer could not be found."), title);
+        return;
+    }
+    const char* data_home_env = std::getenv("XDG_DATA_HOME");
+    const boost::filesystem::path applications =
+        boost::filesystem::path(data_home_env != nullptr && *data_home_env != 0 ? data_home_env : std::string(home) + "/.local/share") / "applications";
+    boost::system::error_code ec;
+    boost::filesystem::create_directories(applications, ec);
+    const std::string desktop_name = "PrusaSlicer3URLProtocol.desktop";
+    boost::nowide::ofstream file((applications / desktop_name).string(), std::ios::binary);
+    // Exec quoting per the Desktop Entry spec: double quotes, with " ` $ \\ escaped.
+    std::string quoted = "\"";
+    for (char c : executable) {
+        if (c == '"' || c == '`' || c == '$' || c == '\\') {
+            quoted += '\\';
+        }
+        quoted += c;
+    }
+    quoted += "\"";
+    file << "[Desktop Entry]\n"
+            "Name=PrusaSlicer URL Protocol\n"
+            "Exec=" << quoted << " %u\n"
+            "Terminal=false\n"
+            "Type=Application\n"
+            "MimeType=x-scheme-handler/prusaslicer;\n"
+            "Icon=PrusaSlicer\n"
+            "NoDisplay=true\n";
+    file.close();
+    if (!file) {
+        dialogs.show_error_dialog(_u8L("The desktop file could not be written."), title);
+        return;
+    }
+    const int result = std::system(("xdg-mime default " + desktop_name + " x-scheme-handler/prusaslicer").c_str());
+    std::system(("update-desktop-database \"" + applications.string() + "\" >/dev/null 2>&1").c_str());
+    if (result != 0) {
+        dialogs.show_error_dialog(
+            fmt::format("{}\n{}", _u8L("Registering the link handler with xdg-mime failed."), (applications / desktop_name).string()),
+            title
+        );
+        return;
+    }
+    dialogs.show_info_dialog(
+        fmt::format("{}\n{}", _u8L("prusaslicer:// links (e.g. from Printables) now open in this PrusaSlicer:"), executable), title
+    );
+#endif
+}
+
 void MenuCommandRegistrar::export_wifi_config()
 {
     // prusa_printer_settings.ini, read by Prusa printers (MK4, XL, MINI, CORE One...) from a USB drive.
@@ -2470,6 +2536,13 @@ void MenuCommandRegistrar::register_main_menu_config_commands()
         {MenuItemName::MainMenu, MenuItemName::Configuration, MenuItemName::ConfigSnapshots},
         std::make_unique<UIItemCommand>("config-snapshots", [this]() { show_config_snapshots(); })
     );
+#if defined(__linux__) && !defined(__ANDROID__)
+    // Menu -> Configuration -> register prusaslicer:// links (2.x desktop integration)
+    m_menu_manager.register_menu_item(
+        {MenuItemName::MainMenu, MenuItemName::Configuration, MenuItemName::RegisterUrlScheme},
+        std::make_unique<UIItemCommand>("register-url-scheme", [this]() { register_url_scheme(); })
+    );
+#endif
     // Menu -> Configuration -> Wi-Fi configuration file (2.x)
     m_menu_manager.register_menu_item(
         {MenuItemName::MainMenu, MenuItemName::Configuration, MenuItemName::WifiConfigFile},

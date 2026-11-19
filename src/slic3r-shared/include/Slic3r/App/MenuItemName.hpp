@@ -49,6 +49,7 @@ enum class MenuItemName
     CheckAppUpdates,
     FlashPrinterFirmware,
     WifiConfigFile,
+    RegisterUrlScheme,
     TakeConfigSnapshot,
     ConfigSnapshots,
 

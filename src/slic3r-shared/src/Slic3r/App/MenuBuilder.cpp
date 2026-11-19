@@ -131,6 +131,8 @@ std::string MenuBuilder::item_name_translated(UniversalMenuItemName menu_item_na
                     return Biz::_u8L("Take configuration snapshot") + "...";
                 case MenuItemName::ConfigSnapshots:
                     return Biz::_u8L("Configuration snapshots") + "...";
+                case MenuItemName::RegisterUrlScheme:
+                    return Biz::_u8L("Open prusaslicer:// links in PrusaSlicer");
                 case MenuItemName::WifiConfigFile:
                     return Biz::_u8L("Wi-Fi configuration file") + "...";
                 case MenuItemName::FlashPrinterFirmware:

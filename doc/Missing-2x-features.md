@@ -52,4 +52,4 @@ Status: ✅ done in this branch · ⏳ in progress · ☐ open · — not done, 
 | ✅ | Configuration snapshots | main menu > Configuration: take a snapshot (presets, physical printers, repository manifest → `<data dir>/snapshots/*.zip`), list and restore (the current state is snapshotted first; restart to load) |
 | ☐ | Check for app updates, hints / tip of the day | |
 | ✅ | SLA archive import (SL1 → mesh) | open / import .sl1 or .sl1s: PNG layers traced back (marching squares) into a mesh; SVG-layer archives are refused |
-| ☐ | Linux "Open in PrusaSlicer" URL registration | |
+| ✅ | Linux "Open in PrusaSlicer" URL registration | main menu > Configuration (Linux): writes a .desktop handler for x-scheme-handler/prusaslicer (AppImage path when run from one) and registers it with xdg-mime. The desktop file is verified here; xdg-mime is not installed in this environment |
