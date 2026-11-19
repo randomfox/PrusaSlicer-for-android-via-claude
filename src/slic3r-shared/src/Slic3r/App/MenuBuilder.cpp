@@ -63,6 +63,8 @@ std::string MenuBuilder::item_name_translated(UniversalMenuItemName menu_item_na
 #else
                     return Biz::_u8L("Preferences");
 #endif
+                case MenuItemName::PrintHostQueue:
+                    return Biz::_u8L("Print host upload queue") + "...";
                 case MenuItemName::FileMenu:
                     return Biz::_u8L("File");
                 case MenuItemName::NewProject:

@@ -41,6 +41,7 @@ enum class MenuItemName
     CameraRightView,
 
     Preferences,
+    PrintHostQueue,
 
     Configuration,
     ConfigurationWizard,

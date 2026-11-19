@@ -35,7 +35,7 @@ Status: ✅ done in this branch · ⏳ in progress · ☐ open
 | ✅ | Custom G-code editor with placeholder list | "{ }" button next to each custom G-code field: G-code specific placeholders, slicing states, statistics, then all settings; inserts at the end (no caret position available) |
 | ☐ | Optimize orientation | algorithm not ported |
 | ✅ | AMF import | plain and zipped, units, part/modifier/negative/blocker/enforcer volumes, constellation instances; per-object settings are not read |
-| ☐ | Print host upload queue window | notifications only |
+| ✅ | Print host upload queue window | main menu > Print host upload queue: uploads of the session with state and progress, cancel an active one, clear finished ones (a list dialog, refreshed on demand) |
 | ✅ | Bonjour "Browse" for printers | search button next to the host field (not tested: no printer on the test network) |
 | ☐ | 2.x profiles: translate `compatible_*_condition` | pinned to one printer model |
 | ☐ | Post-processing scripts on Windows | done for Linux, macOS and Android (this branch) |

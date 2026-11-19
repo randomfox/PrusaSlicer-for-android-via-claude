@@ -20,6 +20,8 @@ public:
 
     void on_storage_resolved(size_t id, const std::string& storage);
 
+    PrintHost::PrintHostJobManager& print_host_job_manager() { return m_print_host_job_manager; }
+
     /**
      * @brief Accepts data from PrintHostJobManager and passes it to ResultExportDataFinalizer and process_gcode_inner.
      */

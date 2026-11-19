@@ -1578,6 +1578,62 @@ void MenuCommandRegistrar::show_system_info()
     AppServices::instance().dialog_manager().show_info_dialog(text, _u8L("System Information"));
 }
 
+void MenuCommandRegistrar::show_print_host_queue()
+{
+    using Biz::PrintHost::UploadRecord;
+    auto& manager = m_project_interactor.result_export_interactor().print_host_job_manager();
+    const std::vector<UploadRecord> uploads = manager.uploads();
+
+    const auto state_text = [](const UploadRecord& r) -> std::string {
+        switch (r.state) {
+        case UploadRecord::State::Queued: return _u8L("Queued");
+        case UploadRecord::State::Uploading: return fmt::format("{} {:.0f} %", _u8L("Uploading"), r.progress * 100.);
+        case UploadRecord::State::Finished: return _u8L("Completed");
+        case UploadRecord::State::Failed: return _u8L("Error") + (r.error.empty() ? "" : ": " + r.error);
+        case UploadRecord::State::Cancelled: return _u8L("Canceled");
+        }
+        return {};
+    };
+    std::string text;
+    for (const UploadRecord& r : uploads) {
+        text += fmt::format("{} → {} ({}): {}\n", r.filename, r.printer, r.host, state_text(r));
+    }
+    if (text.empty()) {
+        text = _u8L("No uploads in this session.");
+    }
+
+    const std::string close   = _u8L("Close");
+    const std::string refresh = _u8L("Refresh");
+    const std::string clear   = _u8L("Clear finished uploads");
+    std::vector<std::string> actions{close, refresh};
+    std::vector<size_t> cancel_ids;
+    for (const UploadRecord& r : uploads) {
+        if (r.state == UploadRecord::State::Queued || r.state == UploadRecord::State::Uploading) {
+            actions.push_back(fmt::format("{} {} (#{})", _u8L("Cancel"), r.filename, r.id));
+            cancel_ids.push_back(r.id);
+        }
+    }
+    if (uploads.size() > cancel_ids.size()) {
+        actions.push_back(clear);
+    }
+
+    const std::string chosen =
+        AppServices::instance().dialog_manager().show_combo_dialog(_u8L("Print host upload queue"), text, actions);
+    if (chosen.empty() || chosen == close) {
+        return;
+    }
+    if (chosen == clear) {
+        manager.clear_finished_uploads();
+    } else {
+        for (size_t i = 0; i < cancel_ids.size(); ++i) {
+            if (chosen == actions[2 + i]) {
+                manager.cancel_job(cancel_ids[i]);
+            }
+        }
+    }
+    show_print_host_queue(); // show the updated list
+}
+
 void MenuCommandRegistrar::show_object_info()
 {
     // 2.x "Info" panel of the object list: size, volume, facets and mesh errors.
@@ -2452,6 +2508,11 @@ void MenuCommandRegistrar::register_main_menu_commands(Lua::PluginSystem* plugin
     m_menu_manager
         // Menu -> Separator
         .register_menu_separator_item({MenuItemName::MainMenu})
+        // Menu -> Print host upload queue (2.x Window menu)
+        .register_menu_item(
+            {MenuItemName::MainMenu, MenuItemName::PrintHostQueue},
+            std::make_unique<UIItemCommand>("print-host-queue", [this]() { show_print_host_queue(); })
+        )
         // Menu -> Preferences
         .register_menu_item(
             {MenuItemName::MainMenu, MenuItemName::Preferences},

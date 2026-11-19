@@ -9,8 +9,25 @@
 #include <map>
 #include <memory>
 #include <mutex>
+#include <vector>
+#include <string>
+#include <functional>
 
 namespace Slic3r::Biz::PrintHost {
+
+/// One upload, for the upload queue window (2.x PrintHostQueueDialog).
+struct UploadRecord
+{
+    enum class State { Queued, Uploading, Finished, Failed, Cancelled };
+
+    size_t id{0};
+    std::string printer;  ///< Printer (host) name.
+    std::string host;
+    std::string filename;
+    State state{State::Queued};
+    double progress{0.};  ///< 0..1 while uploading.
+    std::string error;
+};
 
 class PrintHostJobManager
 {
@@ -30,7 +47,16 @@ public:
 
     void cancel_job(size_t id);
 
+    /// The uploads of this session, oldest first (thread safe).
+    std::vector<UploadRecord> uploads() const;
+    /// Forgets the uploads that are no longer queued or running.
+    void clear_finished_uploads();
+
 private:
+    void update_record(size_t id, const std::function<void(UploadRecord&)>& update);
+
+    mutable std::mutex m_records_mutex;
+    std::vector<UploadRecord> m_records;
 
     std::map<size_t,std::shared_ptr<PrintHostJobWrapper>> m_wrappers;
 };
