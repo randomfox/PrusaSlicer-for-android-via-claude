@@ -127,6 +127,10 @@ std::string MenuBuilder::item_name_translated(UniversalMenuItemName menu_item_na
                     return Biz::_u8L("Check for config updates");
                 case MenuItemName::CheckAppUpdates:
                     return Biz::_u8L("Check for application updates");
+                case MenuItemName::TakeConfigSnapshot:
+                    return Biz::_u8L("Take configuration snapshot") + "...";
+                case MenuItemName::ConfigSnapshots:
+                    return Biz::_u8L("Configuration snapshots") + "...";
                 case MenuItemName::WifiConfigFile:
                     return Biz::_u8L("Wi-Fi configuration file") + "...";
                 case MenuItemName::FlashPrinterFirmware:

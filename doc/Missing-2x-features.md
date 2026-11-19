@@ -49,7 +49,7 @@ Status: ✅ done in this branch · ⏳ in progress · ☐ open · — not done, 
 | ☐ | Configuration wizard (re-run vendor/filament selection) | replaced by Welcome/Add printer dialogs |
 | ☐ | Firmware flashing (avrdude) | desktop only |
 | ✅ | Wi-Fi config file | main menu > Configuration > Wi-Fi configuration file: writes prusa_printer_settings.ini ([wifi] ssid, psk) |
-| ☐ | Configuration snapshots | |
+| ✅ | Configuration snapshots | main menu > Configuration: take a snapshot (presets, physical printers, repository manifest → `<data dir>/snapshots/*.zip`), list and restore (the current state is snapshotted first; restart to load) |
 | ☐ | Check for app updates, hints / tip of the day | |
 | ✅ | SLA archive import (SL1 → mesh) | open / import .sl1 or .sl1s: PNG layers traced back (marching squares) into a mesh; SVG-layer archives are refused |
 | ☐ | Linux "Open in PrusaSlicer" URL registration | |

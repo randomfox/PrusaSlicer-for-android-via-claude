@@ -41,6 +41,7 @@
 #include "Slic3r/Biz/Algorithms/Point.hpp"
 #include "Slic3r/Biz/FileLoadingLogic.hpp"
 #include "Slic3r/Biz/OrientationOptimizer.hpp"
+#include "Slic3r/Biz/ConfigSnapshots.hpp"
 
 #include <boost/filesystem/operations.hpp>
 #include <boost/nowide/fstream.hpp>
@@ -1636,6 +1637,56 @@ void MenuCommandRegistrar::optimize_orientation()
     m_project_interactor.undo_provider().take_snapshot(Biz::UndoSnapshotType::OptimizeOrientation);
 }
 
+void MenuCommandRegistrar::take_config_snapshot()
+{
+    IDialogManager& dialogs = AppServices::instance().dialog_manager();
+    const std::string title = _u8L("Take configuration snapshot");
+    const std::string comment = dialogs.show_input_dialog(title, _u8L("Snapshot name:"), _u8L("Snapshot"));
+    if (comment.empty()) {
+        return;
+    }
+    const auto snapshot = Biz::ConfigSnapshots::take_snapshot(comment);
+    if (!snapshot) {
+        dialogs.show_error_dialog(snapshot.error(), title);
+    } else {
+        dialogs.show_info_dialog(fmt::format("{}: {} ({})", _u8L("Snapshot taken"), snapshot->comment, snapshot->id), title);
+    }
+}
+
+void MenuCommandRegistrar::show_config_snapshots()
+{
+    IDialogManager& dialogs = AppServices::instance().dialog_manager();
+    const std::string title = _u8L("Configuration snapshots");
+    const std::vector<Biz::ConfigSnapshots::Snapshot> snapshots = Biz::ConfigSnapshots::list_snapshots();
+    if (snapshots.empty()) {
+        dialogs.show_info_dialog(_u8L("There are no configuration snapshots yet. Take one with \"Take configuration snapshot\"."), title);
+        return;
+    }
+    std::vector<std::string> values;
+    for (const auto& snapshot : snapshots) {
+        values.push_back(fmt::format("{} - {} ({})", snapshot.id, snapshot.comment, snapshot.app_version));
+    }
+    const std::string chosen = dialogs.show_combo_dialog(
+        title,
+        _u8L("Restore the presets and physical printers of a snapshot (the current ones are saved in a new snapshot first):"),
+        values
+    );
+    const auto it = std::find(values.begin(), values.end(), chosen);
+    if (chosen.empty() || it == values.end()) {
+        return;
+    }
+    const auto& snapshot = snapshots[size_t(it - values.begin())];
+    if (const auto restored = Biz::ConfigSnapshots::restore_snapshot(snapshot); !restored) {
+        dialogs.show_error_dialog(restored.error(), title);
+    } else {
+        dialogs.show_info_dialog(
+            fmt::format("{} {}\n\n{}", _u8L("Restored the snapshot of"), snapshot.id,
+                        _u8L("Restart PrusaSlicer to load the restored configuration.")),
+            title
+        );
+    }
+}
+
 void MenuCommandRegistrar::export_wifi_config()
 {
     // prusa_printer_settings.ini, read by Prusa printers (MK4, XL, MINI, CORE One...) from a USB drive.
@@ -2409,6 +2460,15 @@ void MenuCommandRegistrar::register_main_menu_config_commands()
             CommandName::PresetReposManagement,
             [this]() { m_navigator.set_modal_dialog(ModalDialog::PresetUpdater); }
         )
+    );
+    // Menu -> Configuration -> configuration snapshots (2.x)
+    m_menu_manager.register_menu_item(
+        {MenuItemName::MainMenu, MenuItemName::Configuration, MenuItemName::TakeConfigSnapshot},
+        std::make_unique<UIItemCommand>("take-config-snapshot", [this]() { take_config_snapshot(); })
+    );
+    m_menu_manager.register_menu_item(
+        {MenuItemName::MainMenu, MenuItemName::Configuration, MenuItemName::ConfigSnapshots},
+        std::make_unique<UIItemCommand>("config-snapshots", [this]() { show_config_snapshots(); })
     );
     // Menu -> Configuration -> Wi-Fi configuration file (2.x)
     m_menu_manager.register_menu_item(
