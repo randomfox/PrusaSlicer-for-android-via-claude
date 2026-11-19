@@ -12,7 +12,16 @@
 
 #include <fstream>
 
-#ifndef _WIN32
+#ifdef _WIN32
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+#include <shellapi.h>
+#include <cwchar>
+#include <boost/algorithm/string/predicate.hpp>
+#include <boost/nowide/convert.hpp>
+#else
 #include <cerrno>
 #include <cstring>
 #include <fcntl.h>
@@ -28,6 +37,7 @@ namespace Slic3r::Biz::ResultExport {
 
 namespace {
 
+#ifndef _WIN32
 std::string shell_quote(const std::string& text)
 {
     std::string quoted{"'"};
@@ -70,8 +80,112 @@ std::string build_command(const std::string& script, const boost::filesystem::pa
 #endif
     return command + " " + shell_quote(gcode_path.string());
 }
+#endif
 
-#ifndef _WIN32
+#ifdef _WIN32
+/// Runs one script line as 2.x did on Windows: the first word is the program (.exe/.com run
+/// directly, .bat/.cmd through cmd.exe, other files through their associated program, e.g.
+/// python for .py), the rest are its arguments, then the G-code path. Returns the exit code;
+/// the error output is collected in `std_err`.
+int run_windows(const std::string& script, const boost::filesystem::path& gcode_path, const ScriptEnvironment& environment, std::string& std_err)
+{
+    const std::wstring script_w = boost::nowide::widen(script);
+    int argc                    = 0;
+    LPWSTR* argv                = ::CommandLineToArgvW(script_w.c_str(), &argc);
+    if (argv == nullptr || argc <= 0) {
+        if (argv != nullptr) {
+            ::LocalFree(argv);
+        }
+        throw Slic3r::RuntimeError(fmt::format("Invalid post-processing script: {}", script));
+    }
+    std::vector<std::wstring> args(argv, argv + argc);
+    ::LocalFree(argv);
+
+    const std::wstring program = args.front();
+    if (!boost::filesystem::exists(boost::filesystem::path(program))) {
+        throw Slic3r::RuntimeError(fmt::format("The post-processing script {} does not exist.", boost::nowide::narrow(program)));
+    }
+    const auto quote = [](const std::wstring& arg) {
+        std::wstring quoted = L"\"";
+        for (wchar_t c : arg) {
+            if (c == L'"') {
+                quoted += L"\\";
+            }
+            quoted.push_back(c);
+        }
+        return quoted + L"\"";
+    };
+    std::wstring command_line;
+    if (boost::iends_with(program, L".exe") || boost::iends_with(program, L".com")) {
+        command_line = quote(program);
+    } else if (boost::iends_with(program, L".bat") || boost::iends_with(program, L".cmd")) {
+        command_line = L"cmd.exe /c " + quote(program);
+    } else {
+        wchar_t executable[MAX_PATH] = {0};
+        if (reinterpret_cast<INT_PTR>(::FindExecutableW(program.c_str(), nullptr, executable)) <= 32 || executable[0] == 0) {
+            throw Slic3r::RuntimeError(fmt::format(
+                "No program is associated with the post-processing script {}.", boost::nowide::narrow(program)
+            ));
+        }
+        command_line = quote(executable) + L" " + quote(program);
+    }
+    for (size_t i = 1; i < args.size(); ++i) {
+        command_line += L" " + quote(args[i]);
+    }
+    command_line += L" " + quote(gcode_path.wstring());
+
+    // Our environment plus the SLIC3R_* variables.
+    std::wstring environment_block;
+    if (LPWCH current = ::GetEnvironmentStringsW(); current != nullptr) {
+        for (LPWCH p = current; *p != 0; p += wcslen(p) + 1) {
+            environment_block.append(p).push_back(L'\0');
+        }
+        ::FreeEnvironmentStringsW(current);
+    }
+    for (const auto& [name, value] : environment) {
+        environment_block.append(boost::nowide::widen(name + "=" + value)).push_back(L'\0');
+    }
+    environment_block.push_back(L'\0');
+
+    SECURITY_ATTRIBUTES security{sizeof(SECURITY_ATTRIBUTES), nullptr, TRUE};
+    HANDLE read_pipe = nullptr, write_pipe = nullptr;
+    if (!::CreatePipe(&read_pipe, &write_pipe, &security, 0)) {
+        throw Slic3r::RuntimeError("Cannot run post-processing script: CreatePipe failed.");
+    }
+    ::SetHandleInformation(read_pipe, HANDLE_FLAG_INHERIT, 0);
+
+    STARTUPINFOW startup{};
+    startup.cb         = sizeof(startup);
+    startup.dwFlags    = STARTF_USESTDHANDLES;
+    startup.hStdInput  = ::GetStdHandle(STD_INPUT_HANDLE);
+    startup.hStdOutput = ::GetStdHandle(STD_OUTPUT_HANDLE);
+    startup.hStdError  = write_pipe;
+    PROCESS_INFORMATION process{};
+    const BOOL created = ::CreateProcessW(
+        nullptr, command_line.data(), nullptr, nullptr, TRUE, CREATE_NO_WINDOW | CREATE_UNICODE_ENVIRONMENT,
+        environment_block.data(), nullptr, &startup, &process
+    );
+    ::CloseHandle(write_pipe);
+    if (!created) {
+        ::CloseHandle(read_pipe);
+        throw Slic3r::RuntimeError(fmt::format("Cannot run post-processing script {} (error {}).", script, ::GetLastError()));
+    }
+    char buffer[4096];
+    DWORD read = 0;
+    while (::ReadFile(read_pipe, buffer, sizeof buffer, &read, nullptr) && read > 0) {
+        if (std_err.size() < 64 * 1024) {
+            std_err.append(buffer, read);
+        }
+    }
+    ::CloseHandle(read_pipe);
+    ::WaitForSingleObject(process.hProcess, INFINITE);
+    DWORD exit_code = 0;
+    ::GetExitCodeProcess(process.hProcess, &exit_code);
+    ::CloseHandle(process.hThread);
+    ::CloseHandle(process.hProcess);
+    return int(exit_code);
+}
+#else
 /// Runs `command` with /bin/sh -c and the given environment added to ours. Returns the exit
 /// code; the error output is collected in `std_err`.
 int run_shell(const std::string& command, const ScriptEnvironment& environment, std::string& std_err)
@@ -150,13 +264,15 @@ void run_post_process_scripts(
             if (script.empty()) {
                 continue;
             }
+            std::string std_err;
 #ifdef _WIN32
-            throw Slic3r::RuntimeError("Post-processing scripts are not supported in this build.");
+            SPDLOG_INFO("Running post-processing script: {}", script);
+            const int result = run_windows(script, gcode_path, environment, std_err);
 #else
             const std::string command = build_command(script, gcode_path);
             SPDLOG_INFO("Running post-processing script: {}", command);
-            std::string std_err;
             const int result = run_shell(command, environment, std_err);
+#endif
             boost::trim(std_err);
             if (result != 0) {
                 throw Slic3r::RuntimeError(
@@ -173,7 +289,6 @@ void run_post_process_scripts(
                     "Post-processing script {} removed the G-code file. Scripts must change the file in place.", script
                 ));
             }
-#endif
         }
     }
 }

@@ -3076,12 +3076,7 @@ void fdm_config_init_fn(ConfigDefinitions& defs)
     def->location = Print;
     def->label = L("Post-processing scripts");
     def->option_group = ConfigItemDef::OptionGroup::Print_PrecisionSlicing_ScriptSubstitutions;
-#ifdef _WIN32
-    // Not run on Windows yet (see Biz/ResultExport/PostProcessScripts.cpp).
-    def->category = ConfigItemDef::Category::Hidden;
-#else
     def->category = ConfigItemDef::Category::Print_PrecisionSlicing;
-#endif
     def->order = 1;
     def->gui_type = ConfigItemDef::GUIType::textfield;
     def->tooltip = L("If you want to process the output G-code through custom scripts, "

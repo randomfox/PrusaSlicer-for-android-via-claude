@@ -38,7 +38,7 @@ Status: ✅ done in this branch · ⏳ in progress · ☐ open
 | ✅ | Print host upload queue window | main menu > Print host upload queue: uploads of the session with state and progress, cancel an active one, clear finished ones (a list dialog, refreshed on demand) |
 | ✅ | Bonjour "Browse" for printers | search button next to the host field (not tested: no printer on the test network) |
 | ☐ | 2.x profiles: translate `compatible_*_condition` | pinned to one printer model |
-| ☐ | Post-processing scripts on Windows | done for Linux, macOS and Android (this branch) |
+| ✅ | Post-processing scripts on Windows | CreateProcessW like 2.x: .exe/.com directly, .bat/.cmd via cmd.exe, other files via their associated program; SLIC3R_* environment, error output shown. **Not compiled or tested here (no Windows toolchain in this environment)** |
 | ✅ | Legacy 3MF projects without a resolvable printer | the objects load with the default printer and a message names the missing printer |
 | ✅ | Undo of custom G-code / color changes | serialized, slider edits take a snapshot |
 | — | Per-project filament colour | intentionally hidden upstream; the sidebar colour picker (`extruder_colour`) covers it |
